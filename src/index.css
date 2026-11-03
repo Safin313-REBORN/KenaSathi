@@ -1,0 +1,225 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #176B53;
+    --color-primary-hover: #135944;
+    --color-primary-light: #EAF3F0;
+    --color-navy: #172B3A;
+    --color-navy-hover: #11212D;
+    --color-bg-base: #F4F6F5;
+    --color-surface: #FFFFFF;
+    --color-surface-subtle: #EBEFEA;
+    --color-text-primary: #26352E;
+    --color-text-secondary: #64716A;
+    --color-text-muted: #8A9790;
+    --color-border: #D9E0DC;
+    --color-border-subtle: #E8ECE9;
+    --color-warning: #A96C16;
+    --color-warning-bg: #FEF7EC;
+    --color-danger: #B42318;
+    --color-danger-bg: #FDF2F2;
+    --color-success: #176B53;
+    --color-success-bg: #EAF3F0;
+  }
+
+  html {
+    overflow-x: clip;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
+    font-family: 'Plus Jakarta Sans', 'Noto Sans Bengali', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    overflow-x: clip;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* High Contrast Accessibility Mode */
+  .high-contrast {
+    --color-bg-base: #000000 !important;
+    --color-surface: #0a0a0a !important;
+    --color-surface-subtle: #141414 !important;
+    background-color: #000000 !important;
+    color: #ffffff !important;
+  }
+
+  .high-contrast * {
+    border-color: #ffffff !important;
+  }
+
+  .high-contrast button,
+  .high-contrast input,
+  .high-contrast select,
+  .high-contrast textarea {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border: 2px solid #ffffff !important;
+  }
+
+  .high-contrast a,
+  .high-contrast .accent-text {
+    color: #fde047 !important;
+  }
+
+  /* Focus ring for accessibility (WCAG 2.2 AA) */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  .high-contrast :focus-visible {
+    outline: 3px solid #fde047 !important;
+    outline-offset: 3px !important;
+  }
+}
+
+/* =========================================================================
+   KENASATHI INSTITUTIONAL CIVIC COMPONENTS
+   ========================================================================= */
+
+.ks-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--color-border);
+  border-radius: 6px; /* 6px restrained radius */
+  box-shadow: 0 1px 3px 0 rgba(23, 43, 58, 0.05);
+}
+
+/* Button System */
+.ks-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  min-height: 2.5rem;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+.ks-btn-primary {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  border: 1px solid transparent;
+}
+
+.ks-btn-primary:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.ks-btn-teal {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  border: 1px solid transparent;
+}
+
+.ks-btn-teal:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.ks-btn-navy {
+  background-color: var(--color-navy);
+  color: #FFFFFF;
+  border: 1px solid transparent;
+}
+
+.ks-btn-navy:hover {
+  background-color: var(--color-navy-hover);
+}
+
+.ks-btn-secondary {
+  background-color: #FFFFFF;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+
+.ks-btn-secondary:hover {
+  background-color: #F8FAF9;
+  border-color: #B9C4BE;
+}
+
+.ks-btn-ghost {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+}
+
+.ks-btn-ghost:hover {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.ks-btn-danger {
+  background-color: #FFFFFF;
+  color: var(--color-danger);
+  border: 1px solid #FECACA;
+}
+
+.ks-btn-danger:hover {
+  background-color: var(--color-danger-bg);
+  border-color: var(--color-danger);
+}
+
+/* Badge System - Rectangular with small 4px radius */
+.ks-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.6875rem; /* 11px */
+  font-weight: 600;
+  line-height: 1;
+}
+
+.ks-badge-verified {
+  background-color: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid #C4DFD6;
+}
+
+.ks-badge-warning {
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid #FDE68A;
+}
+
+.ks-badge-danger {
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid #FECACA;
+}
+
+.ks-badge-teal {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  border: 1px solid #C4DFD6;
+}
+
+.ks-badge-neutral {
+  background-color: #F4F6F5;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+/* Tabular numbers for financial and statutory precision */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* prefers-reduced-motion compliance */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
