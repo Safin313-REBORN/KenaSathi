@@ -257,6 +257,29 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
+      {/* Official buildathon sticker, kept immediately beneath the main navigation. */}
+      <div className="border-t border-[#DDE4DF] bg-[#F2F7F4]">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2">
+          <a
+            href="https://yunet-aignite26.devpost.com/"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-[44px] items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176B53]"
+            aria-label="Built For Ostad Presents YUNet AIgnite Buildathon 2026. Opens event page in a new tab."
+          >
+            <span className="block h-[76px] w-[152px] overflow-hidden sm:h-[88px] sm:w-[176px]">
+              <img
+                src="/ostad-yunet-aignite-buildathon-sticker.png"
+                alt="Built For Ostad Presents YUNet AIgnite Buildathon 2026"
+                className="h-full w-full object-cover object-center"
+                width="1170"
+                height="156"
+              />
+            </span>
+          </a>
+        </div>
+      </div>
+
       {/* Mobile Drawer (Accessible, full-height touch targets, secondary utilities) */}
       {mobileMenuOpen && (
         <div className="xl:hidden border-t border-[#DDE4DF] bg-white px-4 py-4 space-y-3 shadow-dropdown">

@@ -811,25 +811,29 @@ test('Gemini 3.8 Flash Request: Verifies header authentication, payload structur
 });
 
 // ============================================================================
-// TEST SUITE 16: PUBLIC SERVICE PORTAL INTEGRITY & ZERO COMPETITION REFERENCES
+// TEST SUITE 16: PUBLIC SERVICE INTEGRITY & BUILDATHON ACKNOWLEDGMENT
 // ============================================================================
-test('Public Portal Integrity: Verifies zero competition references across all human-maintained docs and code', async () => {
+test('Official buildathon sticker is visible and links to the event while the app keeps its own identity', async () => {
   const fs = await import('node:fs/promises');
   const path = await import('node:path');
 
   const rootDir = process.cwd();
   const srcDir = path.resolve(rootDir, 'src');
-  const docsDir = path.resolve(rootDir, 'docs');
-  const gsdDir = path.resolve(rootDir, '.gsd');
   const indexHtmlPath = path.resolve(rootDir, 'index.html');
-  const readmePath = path.resolve(rootDir, 'README.md');
+  const navbarPath = path.resolve(srcDir, 'components', 'Navbar.tsx');
+  const stickerPath = path.resolve(rootDir, 'public', 'ostad-yunet-aignite-buildathon-sticker.png');
 
   // Check index.html
   const indexHtml = await fs.readFile(indexHtmlPath, 'utf-8');
-  assert.ok(!indexHtml.includes('Buildathon'), 'index.html must not contain Buildathon');
-  assert.ok(!indexHtml.includes('Ostad'), 'index.html must not contain Ostad');
-  assert.ok(!indexHtml.includes('AIgnite'), 'index.html must not contain AIgnite');
   assert.ok(indexHtml.includes('কেনাসাথী'), 'index.html must include Bengali brand name');
+
+  // The buildathon mention stays in a separate, plain text acknowledgment and does not replace KenaSathi branding.
+  const navbar = await fs.readFile(navbarPath, 'utf-8');
+  assert.match(navbar, /alt="Built For Ostad Presents YUNet AIgnite Buildathon 2026"/);
+  assert.match(navbar, /ostad-yunet-aignite-buildathon-sticker\.png/);
+  assert.match(navbar, /https:\/\/yunet-aignite26\.devpost\.com\//);
+  assert.match(navbar, /কেনাসাথী/);
+  assert.ok((await fs.stat(stickerPath)).size > 0, 'Official sticker artwork must be bundled');
 
   // Verify PitchDeckModal has been deleted
   const pitchDeckPath = path.resolve(srcDir, 'components', 'PitchDeckModal.tsx');
@@ -842,44 +846,6 @@ test('Public Portal Integrity: Verifies zero competition references across all h
   }
   assert.equal(pitchDeckExists, false, 'PitchDeckModal.tsx must be completely deleted from codebase');
 
-  // Recursive search in a directory for text files matching extensions
-  async function searchFiles(dir: string, validExts: string[]): Promise<string[]> {
-    let entries: import('node:fs').Dirent[] = [];
-    try {
-      entries = await fs.readdir(dir, { withFileTypes: true });
-    } catch {
-      return [];
-    }
-    const files: string[] = [];
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        files.push(...(await searchFiles(fullPath, validExts)));
-      } else if (entry.isFile() && validExts.some((ext) => entry.name.endsWith(ext))) {
-        files.push(fullPath);
-      }
-    }
-    return files;
-  }
-
-  const allSrcFiles = await searchFiles(srcDir, ['.ts', '.tsx', '.css']);
-  const allDocFiles = await searchFiles(docsDir, ['.md']);
-  const allGsdFiles = await searchFiles(gsdDir, ['.md']);
-  const allFilesToCheck = [...allSrcFiles, ...allDocFiles, ...allGsdFiles, readmePath];
-
-  const forbiddenRegex = /Ostad Presents|YUNet|AIgnite|Buildathon 2026|PitchDeckModal/i;
-
-  for (const file of allFilesToCheck) {
-    try {
-      const content = await fs.readFile(file, 'utf-8');
-      assert.ok(
-        !forbiddenRegex.test(content),
-        `File ${path.relative(rootDir, file)} must not contain competition or event references`
-      );
-    } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
-    }
-  }
 });
 
 // ============================================================================
