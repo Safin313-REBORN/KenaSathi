@@ -1,77 +1,45 @@
-# কেনাসাথী (KenaSathi) — ভোক্তা অধিকার সহায়তা ও নির্দেশিকা
+# কেনাসাথী (KenaSathi)
 
-> **KenaSathi** is an independent civic consumer assistance platform designed to empower Bangladeshi consumers under the **Consumer Rights Protection Act, 2009 (ভোক্তা অধিকার সংরক্ষণ আইন, ২০০৯)**. It assists citizens with purchase evidence organization, statutory limitation tracking under Section 60, and structured formal complaint draft preparation for submission to the Directorate of National Consumer Rights Protection (DNCRP).
+KenaSathi is an independent, Bengali-first consumer-assistance application for Bangladesh. It helps users organize purchase records, calculate a Section 60 date window from a user-provided cause-of-action date, and prepare complaint drafts for citizen review. It is **not** a DNCRP or government website and does not submit complaints.
 
----
+## What the app does
 
-## 🏛️ আইনি ভিত্তি ও কার্যপ্রণালী (Statutory Foundations)
+- Keeps case metadata in browser `localStorage` and evidence files in browser `IndexedDB`.
+- Provides an authentic empty state and explicitly labelled fictional demonstrations.
+- Builds a draft based on user-provided information and available records; users must review it and submit through an official channel themselves.
+- Supports local deterministic processing and optional, consented direct browser-to-provider AI requests when a user supplies provider credentials.
 
-1. **ধারা ৬০ — ৩০ ক্যালেন্ডার দিনের তামাদি ট্র্যাকার (Section 60 Statutory Limitation)**:
-   - কারণ উদ্ভব হওয়ার ৩০ (ত্রিশ) ক্যালেন্ডার দিনের মধ্যে মহাপরিচালক বা ক্ষমতাপ্রাপ্ত কর্মকর্তার নিকট লিখিত অভিযোগ দাখিল আবশ্যক।
-   - কেনাসাথী ব্যবহারকারীর প্রদত্ত তারিখের ভিত্তিতে নির্ভুল তামাদি দিন গণনা করে। তারিখ অনুপস্থিত থাকলে কোনো মনগড়া তারিখ তৈরি না করে নাগরিককে সতর্কবার্তা দেয়।
+Browser storage is not an encrypted vault. Case records remain browser-local; there is no account service, case database, or case sync. A small SQLite help database powers the product FAQ and local FAQ-matching chat. Chat questions are not saved or sent to an AI provider. Do not use a shared/public device for sensitive records. Optional AI requests may transmit selected information to the provider; review the provider’s terms before consenting.
 
-2. **ধারা ৭৬(৪) — সংবিধিবদ্ধ রিওয়ার্ড বিধান (Section 76(4) Realization Condition)**:
-   - আরোপিত প্রশাসনিক জরিমানা কর্মকর্তা বা নির্বাহী ম্যাজিস্ট্রেট কর্তৃক বাস্তবে আদায়ের পর (upon actual realization) আদায়কৃত জরিমানার ২৫% অভিযোগকারীকে প্রদান করা হয়।
-   - কেনাসাথী এটিকে কোনো নিশ্চিত বা তাৎক্ষণিক ক্যাশ রিওয়ার্ড হিসেবে উপস্থাপন করে না।
+## Legal and official-service links
 
-3. **প্রমাণভিত্তিক নিরপেক্ষ অভিযোগপত্র (Schedule-A Structured Draft)**:
-   - পেমেন্ট স্টেটমেন্ট (বিকাশ/নগদ/ব্যাংক), ক্যাশ মেমো ও কুরিয়ার ট্র্যাকিং নম্বর যাচাইপূর্বক A4 ফরম্যাটে প্রিন্ট ও কপিযোগ্য খসড়া প্রস্তুত করে।
-   - খসড়াটি নাগরিকের নিজস্ব পর্যালোচনার পর ডিএনসিআরপির অফিসিয়াল সিসিএমএস পোর্টাল (`https://ccms.dncrp.com/`) বা ইমেইলে (`nccc@dncrp.gov.bd`) দাখিল করা যায়।
+- Section 60 of the Consumer Rights Protection Act, 2009 sets a 30-day period from the cause of action; the relevant date depends on the facts. Do not guess if the date is unclear. See the [official Bangladeshi law text](https://bdlaws.minlaw.gov.bd/act-print-1014.html).
+- Section 76(4) concerns a conditional share of a fine actually realized; it is not guaranteed compensation or a refund. See the [official law text](https://bdlaws.minlaw.gov.bd/act-print-1014/section-print-39187.html).
+- DNCRP’s official site lists hotline **16121** and online complaint information at [DNCRP](https://dncrp.gov.bd/). The current online complaint system is also available at [CCMS](https://ccms.dncrp.com/).
+- NLASO’s official notice lists **16699** as a new toll-free legal-aid helpline; see the [official notice](https://nlaso.gov.bd/pages/notices/6922f1c6dbfbab28ce0d5df6).
 
----
+The office directory in the app still needs a record-by-record recheck before it should be described as fully verified. KenaSathi is guidance, not legal advice; confirm filing requirements with DNCRP.
 
-## 🛡️ ডেটা নিরাপত্তা ও গোপনীয়তা (Data Privacy Architecture)
+## Local development
 
-- **লোকাল-ফার্স্ট স্টোরেজ (Local-First Storage)**: সমস্ত আপলোডকৃত ছবি ও পিডিএফ ফাইল ব্যবহারকারীর ব্রাউজারের নিজস্ব `IndexedDB` স্টোরেজে সংরক্ষিত থাকে।
-- **ক্লায়েন্ট সাইড পিআইআই স্ক্রাবিং (Client-Side PII Scrubbing)**: বাংলাদেশী মোবাইল নম্বর (`+8801...`, `01...`), ১০/১৩/১৭-ডিজিট এনআইডি নম্বর এবং নাগরিকের ইমেইল অ্যাড্রেস বাহ্যিক প্রক্রিয়াকরণের পূর্বে ক্লায়েন্ট সাইডেই স্বয়ংক্রিয়ভাবে মাস্ক করা হয়।
-- **স্বচ্ছ প্রসেসিং মোড (Transparent Processing Modes)**:
-  - **Local Deterministic Rules**: সম্পূর্ণ অফলাইন আইনি নিয়মে ইন-ব্রাউজার বিশ্লেষণ।
-  - **Optional External AI**: ব্যবহারকারীর স্পষ্ট সম্মতি ও কী কনফিগারেশন সাপেক্ষে ক্লাউড ভিশন বিশ্লেষণ।
+Requires Node.js 22.5+ and npm 9+.
 
----
-
-## 🚀 প্রধান সেবাসমূহ (Core Public Workspaces)
-
-1. **হোম (Home)**: পোর্টাল পরিচিতি, জরুরি হেল্পলাইন (১৬১২১, ৯৯৯, ১৬৪৩০) এবং প্রামাণ্য সার্ভিস ওভারভিউ।
-2. **সেবাসমূহ (Services)**: প্রতিটি সেবার উদ্দেশ্য, প্রয়োজনীয় তথ্য, নাগরিকের প্রাপ্তি এবং ডেটা মোডের স্বচ্ছ বিবরণ।
-3. **আমার নথিপত্র (My Documents)**: ব্রাউজারে সংরক্ষিত সমস্ত পেমেন্ট রসিদ, চালান ও চ্যাট ফাইলের সুবিন্যস্ত রেজিস্টার টেবিল।
-4. **ভোক্তা অধিকার (Consumer Rights)**: ভোক্তা অধিকার সংরক্ষণ আইন ২০০৯ এর প্রধান ধারাগুলোর সহজ ব্যাখ্যা ও সারাদেশের বিভাগীয় সরকারি কার্যালয়ের ডিরেক্টরি।
-5. **আমার বিরোধ (My Cases)**: সক্রিয় ডসিয়ার রেকর্ড, প্রমাণভিত্তিক টাইমলাইন, করণীয় পদক্ষেপের চেকলিস্ট ও নালিশ খসড়া।
-
----
-
-## 💻 লোকাল ডেভেলপমেন্ট ও টেস্ট (Local Setup & Testing)
-
-### প্রয়োজনীয় রিকোয়ারমেন্টস
-- Node.js 18+ (Node 20+ recommended)
-- npm 9+
-
-### ইনস্টলেশন ও রান
 ```bash
-# ডিপেন্ডেন্সি ইনস্টল
 npm install
-
-# ডেভেলপমেন্ট সার্ভার চালু
-npm run dev
-
-# প্রোডাকশন বিল্ড
-npm run build
-
-# প্রিভিউ সার্ভার
-npm run preview
+npm run backend
 ```
 
-### টেস্ট ও কোড কোয়ালিটি
+In a second terminal, start the UI:
+
 ```bash
-# ১৬টি স্বয়ংক্রিয় ইউনিট ও ইন্টিগ্রেশন টেস্ট রান
+npm run dev
 npm test
-
-# ইএসলিন্ট ভেরিফিকেশন
 npm run lint
+npm run build
 ```
 
----
+The API listens on `http://127.0.0.1:8787`. Vite proxies `/api` requests to it. The SQLite database is created at `data/kenasathi-help.sqlite` and stays local to the installation.
 
-## ⚠️ স্বাধীন প্ল্যাটফর্ম সংক্রান্ত আইনি ঘোষণা (Legal Disclaimer)
+For a production-style local run that serves the built UI and API from one process, use `npm run build` followed by `npm start`. On a host, point `KENASATHI_HELP_DB` to a persistent volume and bind `HOST=0.0.0.0`; the host should provide `PORT`.
 
-> **কেনাসাথী একটি স্বাধীন ভোক্তা-সহায়তা ডিজিটাল প্ল্যাটফর্ম।** এটি জাতীয় ভোক্তা-অধিকার সংরক্ষণ অধিদপ্তর (DNCRP), বাণিজ্য মন্ত্রণালয় বা কোনো সরকারি প্রতিষ্ঠানের অফিসিয়াল ওয়েবসাইট নয়। এই প্ল্যাটফর্মে প্রদত্ত তথ্য ও খসড়া নাগরিকের সচেতনতা ও সহায়তার জন্য প্রস্তুতকৃত। কোনো বিরোধের ক্ষেত্রে জাতীয় ভোক্তা হেল্পলাইন **১৬১২১** অথবা সরাসরি সরকারি দপ্তরসমূহে যোগাযোগ করুন।
+Current review results and scope are in [`docs/ACCEPTANCE_MATRIX.md`](docs/ACCEPTANCE_MATRIX.md), [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md), and [`docs/ACCESSIBILITY_AUDIT.md`](docs/ACCESSIBILITY_AUDIT.md). The current suite has 23 tests. The production build succeeds but currently reports app and PDF chunks slightly above Vite’s 500 KB advisory limit.

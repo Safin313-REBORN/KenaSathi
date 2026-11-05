@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   X,
   Upload,
   ShoppingBag,
-  DollarSign,
-  User,
   Sparkles,
   Key,
   FileText,
@@ -14,6 +12,8 @@ import {
   Calendar,
   ShieldCheck,
   Lock,
+  ArrowRight,
+  ArrowLeft,
 } from 'lucide-react';
 import { ConsumerGrievanceType, ConsumerInspectionResult } from '../types/consumer';
 import { processUploadedEvidenceFiles } from '../services/evidenceProcessor';
@@ -27,6 +27,7 @@ interface NewDisputeModalProps {
   onClose: () => void;
   onSubmitNewCase: (newCase: ConsumerInspectionResult) => void;
   language: 'bn' | 'en';
+  initialNotice?: string | null;
 }
 
 export const NewDisputeModal: React.FC<NewDisputeModalProps> = ({
@@ -34,8 +35,12 @@ export const NewDisputeModal: React.FC<NewDisputeModalProps> = ({
   onClose,
   onSubmitNewCase,
   language,
+  initialNotice,
 }) => {
-  // Form fields start blank to protect consumer privacy
+  // Step state: 1 to 5
+  const [currentStep, setCurrentStep] = useState<number>(1);
+
+  // Form fields
   const [productName, setProductName] = useState('');
   const [productBrand, setProductBrand] = useState('');
   const [sellerName, setSellerName] = useState('');
@@ -44,7 +49,9 @@ export const NewDisputeModal: React.FC<NewDisputeModalProps> = ({
   const [purchasePrice, setPurchasePrice] = useState('');
   const [fairMarketPrice, setFairMarketPrice] = useState('');
   const [transactionRef, setTransactionRef] = useState('');
+  const [purchaseDate, setPurchaseDate] = useState('');
   const [incidentDate, setIncidentDate] = useState('');
+  const [causeOfActionDate, setCauseOfActionDate] = useState('');
   const [complainantName, setComplainantName] = useState('');
   const [complainantPhone, setComplainantPhone] = useState('');
   const [complainantAddress, setComplainantAddress] = useState('');
@@ -52,37 +59,114 @@ export const NewDisputeModal: React.FC<NewDisputeModalProps> = ({
 
   // Uploaded files
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [cloudIncludedFiles, setCloudIncludedFiles] = useState<Set<string>>(new Set());
+  // Track consent by File identity. Filenames are not unique, so using them as
+  // consent keys could include an unselected same-named file in a cloud request.
+  const [cloudIncludedFiles, setCloudIncludedFiles] = useState<Set<File>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
   const [progressMsg, setProgressMsg] = useState('');
+  const [processingError, setProcessingError] = useState('');
 
   // AI Engine Settings (Zero plain secret storage)
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<'local_deterministic' | 'gemini' | 'openai'>('local_deterministic');
   const [ephemeralApiKey, setEphemeralApiKey] = useState('');
   const [userConsentedToCloud, setUserConsentedToCloud] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const dialog = dialogRef.current;
+    const parent = dialog?.parentElement;
+    triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    const siblings = parent
+      ? Array.from(parent.children).filter((child) => child !== dialog) as HTMLElement[]
+      : [];
+    const previousInertStates = siblings.map((element) => ({ element, inert: element.inert }));
+    siblings.forEach((element) => {
+      element.inert = true;
+    });
+
+    const focusableSelector =
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusFirstControl = () => {
+      dialog?.querySelector<HTMLElement>('#btn-close-new-dispute')?.focus();
+    };
+    const frame = window.requestAnimationFrame(focusFirstControl);
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+
+      if (event.key !== 'Tab' || !dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+        (element) => element.offsetWidth > 0 || element.offsetHeight > 0 || element === document.activeElement
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', handleKeyDown);
+      previousInertStates.forEach(({ element, inert }) => {
+        element.inert = inert;
+      });
+      triggerRef.current?.focus();
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
+      const selectedFiles = Array.from(e.target.files);
+      const maxSizeBytes = 10 * 1024 * 1024;
+      const supportedTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+      const newFiles = selectedFiles.filter((file) => file.size <= maxSizeBytes && supportedTypes.has(file.type));
+      const rejectedFiles = selectedFiles.length - newFiles.length;
+      setProcessingError(rejectedFiles > 0
+        ? (language === 'bn'
+          ? `${rejectedFiles}টি ফাইল যোগ হয়নি। JPG, PNG, WebP বা PDF ফাইল ১০ এমবির মধ্যে দিন।`
+          : `${rejectedFiles} file(s) were not added. Choose JPG, PNG, WebP, or PDF files up to 10 MB.`)
+        : '');
       setUploadedFiles((prev) => [...prev, ...newFiles]);
-      setCloudIncludedFiles((prev) => {
-        const next = new Set(prev);
-        newFiles.forEach((f) => next.add(f.name));
-        return next;
-      });
+      // Allow choosing the same file again after a validation error.
+      e.target.value = '';
     }
   };
 
-  const handleToggleCloudInclude = (fileName: string) => {
+  const handleToggleCloudInclude = (file: File) => {
     setCloudIncludedFiles((prev) => {
       const next = new Set(prev);
-      if (next.has(fileName)) {
-        next.delete(fileName);
+      if (next.has(file)) {
+        next.delete(file);
       } else {
-        next.add(fileName);
+        next.add(file);
       }
       return next;
     });
@@ -90,13 +174,11 @@ export const NewDisputeModal: React.FC<NewDisputeModalProps> = ({
 
   const handleRemoveFile = (index: number) => {
     const fileToRemove = uploadedFiles[index];
-    if (fileToRemove) {
-      setCloudIncludedFiles((prev) => {
-        const next = new Set(prev);
-        next.delete(fileToRemove.name);
-        return next;
-      });
-    }
+    setCloudIncludedFiles((prev) => {
+      const next = new Set(prev);
+      if (fileToRemove) next.delete(fileToRemove);
+      return next;
+    });
     setUploadedFiles((prev) => prev.filter((_, idx) => idx !== index));
   };
 
@@ -108,6 +190,7 @@ export const NewDisputeModal: React.FC<NewDisputeModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setProcessingError('');
     setIsProcessing(true);
     setProgressMsg(language === 'bn' ? 'নথিপত্র প্রক্রিয়া করা হচ্ছে...' : 'Processing evidence files...');
 
@@ -119,8 +202,8 @@ export const NewDisputeModal: React.FC<NewDisputeModalProps> = ({
       );
 
       // Filter cloud transmission: only attach dataUrl (bytes) for user-consented files
-      const evidenceForAnalysis = processedEvidence.evidenceItems.map((item) => {
-        const isIncludedInCloud = cloudIncludedFiles.has(item.name);
+      const evidenceForAnalysis = processedEvidence.evidenceItems.map((item, index) => {
+        const isIncludedInCloud = cloudIncludedFiles.has(uploadedFiles[index]);
         if (!isIncludedInCloud && selectedProvider !== 'local_deterministic') {
           return {
             ...item,
@@ -131,7 +214,8 @@ export const NewDisputeModal: React.FC<NewDisputeModalProps> = ({
       });
 
       // 2. Run analysis — NEVER auto-populate today's date if empty (Preserve missing dates honestly)
-      const sanitizedIncidentDate = incidentDate.trim() ? incidentDate.trim() : undefined;
+      const sanitizedCauseOfActionDate = causeOfActionDate.trim() ? causeOfActionDate.trim() : undefined;
+      const sanitizedIncidentDate = incidentDate.trim() ? incidentDate.trim() : sanitizedCauseOfActionDate;
 
       const analyzedCase = await runKenaSathiAiAnalysis(
         {
@@ -143,7 +227,10 @@ export const NewDisputeModal: React.FC<NewDisputeModalProps> = ({
           claimedPurchasePriceBdt: parseFloat(purchasePrice) || 0,
           fairMarketPriceBdt: parseFloat(fairMarketPrice) || parseFloat(purchasePrice) || 0,
           transactionRef: transactionRef.trim(),
-          incidentDate: sanitizedIncidentDate,
+          purchaseDate: purchaseDate.trim() || undefined,
+          discoveryDate: incidentDate.trim() || undefined,
+          causeOfActionDate: sanitizedCauseOfActionDate,
+          incidentDate: sanitizedCauseOfActionDate || sanitizedIncidentDate,
           complainantName: complainantName.trim(),
           complainantPhone: complainantPhone.trim(),
           complainantAddress: complainantAddress.trim(),
@@ -165,46 +252,59 @@ export const NewDisputeModal: React.FC<NewDisputeModalProps> = ({
       onClose();
     } catch (err) {
       console.error('Case processing error:', err);
+      setProcessingError(language === 'bn'
+        ? 'তথ্য সংরক্ষণ করা যায়নি। ফাইলের ধরন ও আকার যাচাই করে আবার চেষ্টা করুন। সমস্যা চললে ফাইল ছাড়া সংরক্ষণ করে পরে প্রমাণ যোগ করুন।'
+        : 'We could not save this case. Check the file type and size, then try again. If the problem continues, save without files and add evidence later.');
     } finally {
       setIsProcessing(false);
       setProgressMsg('');
     }
   };
 
+  const steps = [
+    { number: 1, titleBn: '১. বিরোধ ও বিক্রেতা', titleEn: '1. Dispute & Seller' },
+    { number: 2, titleBn: '২. লেনদেন ও তারিখ', titleEn: '2. Payment & Date' },
+    { number: 3, titleBn: '৩. প্রমাণাদি', titleEn: '3. Evidence' },
+    { number: 4, titleBn: '৪. অভিযোগকারী ও বিবরণ', titleEn: '4. Complainant' },
+    { number: 5, titleBn: '৫. পর্যালোচনা', titleEn: '5. Review' },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm overflow-y-auto animate-fadeIn">
-      <div className="relative w-full max-w-3xl my-6 rounded-2xl border border-[#E4E9ED] bg-white shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E4E9ED] bg-[#F6F8FA]">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#E8F5F2] text-[#087E78] flex items-center justify-center">
+      <div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm overflow-y-auto overscroll-contain animate-fadeIn" role="dialog" aria-modal="true" aria-labelledby="new-dispute-title" tabIndex={-1}>
+      <div className="relative w-full max-w-3xl my-6 rounded-md border border-[#DDE4DF] bg-white shadow-xl overflow-hidden flex flex-col max-h-[92vh] overscroll-contain">
+        {/* Modal Masthead */}
+        <div className="flex items-center justify-between gap-2 px-4 sm:px-6 py-4 border-b border-[#DDE4DF] bg-[#F5F7F5]">
+          <div className="flex items-center space-x-3 min-w-0">
+            <div className="w-8 h-8 rounded bg-[#176B53] text-white flex items-center justify-center shrink-0">
               <ShoppingBag className="w-4 h-4" />
             </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-bold text-[#192B38]">
-                {language === 'bn' ? 'নতুন ভোক্তা অভিযোগ অডিট (+ File Dispute)' : 'New Consumer Dispute Audit'}
+            <div className="min-w-0">
+              <h3 id="new-dispute-title" className="text-base sm:text-lg font-bold text-[#172B3A]">
+                {language === 'bn' ? 'নতুন বিরোধ বা ক্রয় তথ্য যাচাই' : 'New Consumer Dispute Intake'}
               </h3>
-              <p className="text-xs text-[#657481]">
+              <p className="hidden sm:block text-xs text-[#526359]">
                 {language === 'bn'
-                  ? 'ভোক্তা অধিকার সংরক্ষণ আইন ২০০৯ অনুসারে প্রমাণাদি যাচাই ও নালিশ প্রস্তুত'
-                  : 'Evidence-based dispute intake & CRPA 2009 statutory audit'}
+                  ? 'ভোক্তা অধিকার সংরক্ষণ আইন ২০০৯ অনুসারে প্রমাণাদি যাচাই ও অভিযোগ প্রস্তুত'
+                  : 'Evidence-based dispute intake & CRPA 2009 statutory guidance'}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 shrink-0">
             <button
               type="button"
               onClick={handleLoadFictionalDemoPreset}
-              className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-300 hover:bg-amber-100 text-amber-800 text-xs font-semibold flex items-center space-x-1 transition"
+              className="ks-btn ks-btn-secondary shrink-0"
               title="Load demo scenario for testing"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span>{language === 'bn' ? 'নমুনা ডেমো লোড করুন' : 'Load Demo'}</span>
+              <Sparkles className="w-3.5 h-3.5 text-[#176B53]" />
+              <span>{language === 'bn' ? 'নমুনা দেখুন' : 'Load demo'}</span>
             </button>
             <button
+              id="btn-close-new-dispute"
+              type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-[#657481] hover:text-[#192B38] hover:bg-slate-200 transition"
+              className="p-1.5 rounded text-[#526359] hover:text-[#172B3A] hover:bg-[#DDE4DF] transition"
               aria-label="Close"
             >
               <X className="w-5 h-5" />
@@ -212,124 +312,76 @@ export const NewDisputeModal: React.FC<NewDisputeModalProps> = ({
           </div>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 text-xs sm:text-sm">
-          {/* AI Engine & Privacy Mode Drawer */}
-          <div className="p-3.5 rounded-xl bg-[#F6F8FA] border border-[#E4E9ED] space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 text-xs font-bold text-[#192B38]">
-                <ShieldCheck className="w-4 h-4 text-[#087E78]" />
-                <span>
-                  {language === 'bn'
-                    ? 'এআই ইঞ্জিন ও গোপনীয়তা সেটিংস:'
-                    : 'AI Engine & Privacy Mode:'}
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#E8F5F2] text-[#087E78] font-bold">
-                  {selectedProvider === 'local_deterministic' ? '100% Client-Side Privacy' : 'Cloud AI (Consented)'}
-                </span>
-              </div>
+        {/* Guided Stepper Tabs */}
+        <div className="px-6 py-3 border-b border-[#DDE4DF] bg-[#F5F7F5] flex items-center justify-between overflow-x-auto gap-2">
+          {steps.map((st) => {
+            const isCompleted = currentStep > st.number;
+            const isCurrent = currentStep === st.number;
+
+            return (
               <button
+                key={st.number}
+                id={`dispute-step-tab-${st.number}`}
+                data-step={st.number}
                 type="button"
-                onClick={() => setShowAiSettings(!showAiSettings)}
-                className="text-xs font-semibold text-[#087E78] hover:underline flex items-center space-x-1"
+                onClick={() => setCurrentStep(st.number)}
+                className={`min-h-[44px] px-3.5 py-1.5 rounded text-sm font-bold whitespace-nowrap transition-colors duration-fast flex items-center space-x-2 border ${
+                  isCurrent
+                    ? 'bg-[#176B53] text-white border-[#176B53] shadow-sm'
+                    : isCompleted
+                    ? 'bg-[#EAF3EE] text-[#176B53] border-[#ABCFC3]'
+                    : 'bg-white text-[#526359] border-[#DDE4DF] hover:border-[#C2CDC6]'
+                }`}
+                aria-current={isCurrent ? 'step' : undefined}
               >
-                <Key className="w-3.5 h-3.5" />
-                <span>{showAiSettings ? (language === 'bn' ? 'লুকান' : 'Hide') : (language === 'bn' ? 'কনফিগারেশন' : 'Configure')}</span>
+                <span
+                  className={`w-5 h-5 rounded-full flex items-center justify-center font-mono text-xs ${
+                    isCurrent
+                      ? 'bg-white/20 text-white'
+                      : isCompleted
+                      ? 'bg-[#176B53] text-white'
+                      : 'bg-[#F5F7F5] text-[#526359]'
+                  }`}
+                >
+                  {isCompleted ? <CheckCircle2 className="w-3.5 h-3.5" /> : st.number}
+                </span>
+                <span>{language === 'bn' ? st.titleBn : st.titleEn}</span>
               </button>
+            );
+          })}
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 text-sm">
+          {initialNotice && (
+            <div className="p-3.5 rounded bg-amber-50 border border-amber-300 text-xs text-amber-900 flex items-start space-x-2">
+              <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+              <span className="font-medium leading-relaxed">{initialNotice}</span>
             </div>
+          )}
 
-            {showAiSettings && (
-              <div className="p-3.5 rounded-xl bg-white border border-[#E4E9ED] space-y-3 text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <label className={`p-2.5 rounded-xl border cursor-pointer flex flex-col justify-between ${selectedProvider === 'local_deterministic' ? 'bg-[#E8F5F2] border-[#087E78] text-[#087E78]' : 'bg-[#F6F8FA] border-[#E4E9ED] text-[#657481]'}`}>
-                    <div className="flex items-center space-x-1.5 font-bold">
-                      <Lock className="w-3.5 h-3.5" />
-                      <span>লোকাল ইঞ্জিন (Local)</span>
-                    </div>
-                    <span className="text-[10px] mt-1 text-[#657481]">জিরো ক্লাউড ডেটা লিকেজ</span>
-                    <input
-                      type="radio"
-                      name="provider"
-                      className="hidden"
-                      checked={selectedProvider === 'local_deterministic'}
-                      onChange={() => setSelectedProvider('local_deterministic')}
-                    />
-                  </label>
-
-                  <label className={`p-2.5 rounded-xl border cursor-pointer flex flex-col justify-between ${selectedProvider === 'gemini' ? 'bg-[#E8F5F2] border-[#087E78] text-[#087E78]' : 'bg-[#F6F8FA] border-[#E4E9ED] text-[#657481]'}`}>
-                    <div className="flex items-center space-x-1.5 font-bold">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Gemini 3.8 Flash Vision</span>
-                    </div>
-                    <span className="text-[10px] mt-1 text-[#657481]">Google Multimodal AI</span>
-                    <input
-                      type="radio"
-                      name="provider"
-                      className="hidden"
-                      checked={selectedProvider === 'gemini'}
-                      onChange={() => setSelectedProvider('gemini')}
-                    />
-                  </label>
-
-                  <label className={`p-2.5 rounded-xl border cursor-pointer flex flex-col justify-between ${selectedProvider === 'openai' ? 'bg-purple-50 border-purple-500 text-purple-700' : 'bg-[#F6F8FA] border-[#E4E9ED] text-[#657481]'}`}>
-                    <div className="flex items-center space-x-1.5 font-bold">
-                      <Key className="w-3.5 h-3.5" />
-                      <span>GPT-4o-mini Vision</span>
-                    </div>
-                    <span className="text-[10px] mt-1 text-[#657481]">OpenAI Multimodal AI</span>
-                    <input
-                      type="radio"
-                      name="provider"
-                      className="hidden"
-                      checked={selectedProvider === 'openai'}
-                      onChange={() => setSelectedProvider('openai')}
-                    />
-                  </label>
-                </div>
-
-                {selectedProvider !== 'local_deterministic' && (
-                  <div className="space-y-2.5 pt-2 border-t border-[#EDF1F4]">
-                    <input
-                      type="password"
-                      placeholder={`আপনার সাময়িক ${selectedProvider.toUpperCase()} API Key প্রদান করুন (সেশনে সীমাবদ্ধ)`}
-                      value={ephemeralApiKey}
-                      onChange={(e) => setEphemeralApiKey(e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-lg border border-[#E4E9ED] bg-white text-[#192B38] font-mono text-xs focus:outline-none focus:border-[#087E78]"
-                    />
-                    <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-800 leading-relaxed">
-                      <strong>{language === 'bn' ? 'নিরাপত্তা সতর্কতা:' : 'Security Notice:'}</strong>{' '}
-                      {language === 'bn'
-                        ? 'এই ক্লায়েন্ট-সাইড প্রোটোটাইপে আপনার এপিআই কি সাময়িকভাবে ব্রাউজারের মেমরিতে সংরক্ষিত হয় এবং সরাসরি প্রোভাইডার এন্ডপয়েন্টে পাঠানো হয়। ব্রাউজার ডেভেলপার টুলসে এটি দৃশ্যমান হতে পারে। কোনো শেয়ার্ড বা প্রোডাকশন সিক্রেট কি ব্যবহার করবেন না।'
-                        : 'In this client-side prototype, your API key is held ephemerally in browser memory and sent directly to provider APIs. It may be visible in browser DevTools network tab. Do not use shared or high-privilege production credentials.'}
-                    </div>
-                    <label className="flex items-start space-x-2 cursor-pointer pt-1">
-                      <input
-                        type="checkbox"
-                        checked={userConsentedToCloud}
-                        onChange={(e) => setUserConsentedToCloud(e.target.checked)}
-                        className="mt-0.5 rounded border-[#CBD5E1] text-[#087E78] focus:ring-0"
-                      />
-                      <span className="text-[11px] text-[#657481] leading-snug">
-                        আমি স্বীকার করছি যে প্রামাণ্য নথির ছবি ও বিবরণ ক্লাউড এআই মডেলে পাঠানো হবে। ব্যক্তিগত তথ্য (নাম, ফোন, ঠিকানা) ক্লায়েন্টেই মিনিমাইজ ও স্ক্রাব (Redacted) করা হয়।
-                      </span>
-                    </label>
-                  </div>
-                )}
+          {/* STEP 1: Grievance Category & Seller Information */}
+          {currentStep === 1 && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="border-b border-[#DDE4DF] pb-2">
+                <h4 className="font-bold text-[#172B3A] text-sm">
+                  {language === 'bn' ? '১. বিরোধের ধরন ও বিক্রেতার বিবরণ' : '1. Grievance Category & Seller Details'}
+                </h4>
+                <p className="text-xs text-[#526359]">
+                  {language === 'bn'
+                    ? 'অভিযোগের আইনি ক্যাটাগরি এবং যে প্ল্যাটফর্ম বা দোকান থেকে ক্রয় করেছেন তার তথ্য।'
+                    : 'Select statutory violation category and seller identity details.'}
+                </p>
               </div>
-            )}
-          </div>
 
-          {/* Section A: Grievance Category & Cause of Action Date */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="font-bold text-[#192B38]">
+                <label className="font-bold text-[#172B3A]">
                   {language === 'bn' ? 'অভিযোগের আইনি ক্যাটাগরি:' : 'Grievance Category:'}
                 </label>
                 <select
                   value={grievanceType}
                   onChange={(e) => setGrievanceType(e.target.value as ConsumerGrievanceType)}
-                  className="w-full px-3.5 py-2.5 rounded-lg bg-[#F6F8FA] border border-[#E4E9ED] text-[#192B38] focus:outline-none focus:border-[#087E78] focus:bg-white transition"
+                  className="w-full px-3.5 py-2.5 rounded bg-[#F5F7F5] border border-[#DDE4DF] text-[#26352E] focus:outline-none focus:border-[#176B53] focus:bg-white transition"
                 >
                   <option value="product_not_delivered">প্রতিশ্রুত পণ্য বা সেবা সরবরাহ না করা (ধারা ৪৫)</option>
                   <option value="wrong_product">ভুল বা ভিন্ন পণ্য সরবরাহ (ধারা ৪৫)</option>
@@ -345,300 +397,505 @@ export const NewDisputeModal: React.FC<NewDisputeModalProps> = ({
                 </select>
               </div>
 
-              {/* Crucial Cause of Action Date for Section 60 */}
-              <div className="space-y-1.5">
-                <label className="font-bold text-amber-800 flex items-center space-x-1">
-                  <Calendar className="w-3.5 h-3.5 text-amber-600" />
-                  <span>{language === 'bn' ? 'ঘটনা বা কারণ উদ্ভবের তারিখ (ধারা ৬০):' : 'Cause-of-Action Date (Section 60):'}</span>
-                </label>
-                <input
-                  type="date"
-                  value={incidentDate}
-                  onChange={(e) => setIncidentDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg bg-amber-50/50 border border-amber-300 text-[#192B38] focus:outline-none focus:border-amber-600 transition text-xs sm:text-sm"
-                />
-                <span className="text-[10px] text-[#657481] block leading-relaxed">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold text-[#172B3A]">
+                    {language === 'bn' ? 'পণ্যের নাম:' : 'Product Name:'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Sony WH-1000XM5 Headphones"
+                    value={productName}
+                    onChange={(e) => setProductName(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded bg-[#F5F7F5] border border-[#DDE4DF] text-[#26352E] focus:outline-none focus:border-[#176B53] focus:bg-white"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-[#172B3A]">
+                    {language === 'bn' ? 'ব্র্যান্ড:' : 'Brand (Claimed):'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Sony / Apple"
+                    value={productBrand}
+                    onChange={(e) => setProductBrand(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded bg-[#F5F7F5] border border-[#DDE4DF] text-[#26352E] focus:outline-none focus:border-[#176B53] focus:bg-white"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-[#172B3A]">
+                    {language === 'bn' ? 'বিক্রেতা / পেজের নাম:' : 'Seller / Shop Name:'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Gadget Vault BD (বিক্রেতা)"
+                    value={sellerName}
+                    onChange={(e) => setSellerName(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded bg-[#F5F7F5] border border-[#DDE4DF] text-[#26352E] focus:outline-none focus:border-[#176B53] focus:bg-white"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-[#172B3A]">
+                    {language === 'bn' ? 'প্ল্যাটফর্ম:' : 'Platform:'}
+                  </label>
+                  <select
+                    value={platform}
+                    onChange={(e) => setPlatform(e.target.value as PlatformType)}
+                    className="w-full px-3.5 py-2 rounded bg-[#F5F7F5] border border-[#DDE4DF] text-[#26352E] focus:outline-none focus:border-[#176B53] focus:bg-white"
+                  >
+                    <option value="facebook_page">Facebook Page / F-Commerce</option>
+                    <option value="daraz">Daraz Marketplace</option>
+                    <option value="chaldal">Chaldal / E-commerce</option>
+                    <option value="standalone_website">Standalone Website</option>
+                    <option value="physical_store">Physical Retail Shop</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 2: Payment Consideration & Statutory Date */}
+          {currentStep === 2 && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="border-b border-[#DDE4DF] pb-2">
+                <h4 className="font-bold text-[#172B3A] text-sm">
+                  {language === 'bn' ? '২. আর্থিক লেনদেন ও আইনি তামাদি তারিখ' : '2. Financial Consideration & Statutory Date'}
+                </h4>
+                <p className="text-xs text-[#526359]">
                   {language === 'bn'
-                    ? 'ঐচ্ছিক: ক্রয়ের তারিখ নয়, যে তারিখে বিক্রেতা প্রতিশ্রুতি ভঙ্গ করেছে (cause of action) সেই তারিখ দিন। ফাঁকা রাখলে স্বয়ংক্রিয়ভাবে আজকের তারিখ বসানো হবে না।'
-                    : 'Optional: Date when breach/failure occurred (cause of action). If left blank, today\'s date will not be fabricated.'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Section B: Product & Seller Details */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="font-bold text-[#192B38]">
-                {language === 'bn' ? 'পণ্যের নাম:' : 'Product Name:'}
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Sony WH-1000XM5 Headphones"
-                value={productName}
-                onChange={(e) => setProductName(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-lg bg-[#F6F8FA] border border-[#E4E9ED] text-[#192B38] placeholder-slate-400 focus:outline-none focus:border-[#087E78] focus:bg-white"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="font-bold text-[#192B38]">
-                {language === 'bn' ? 'ব্র্যান্ড:' : 'Brand (Claimed):'}
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Sony / Apple"
-                value={productBrand}
-                onChange={(e) => setProductBrand(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-lg bg-[#F6F8FA] border border-[#E4E9ED] text-[#192B38] placeholder-slate-400 focus:outline-none focus:border-[#087E78] focus:bg-white"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="font-bold text-[#192B38]">
-                {language === 'bn' ? 'বিক্রেতা / পেজের নাম:' : 'Seller / Shop Name:'}
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Gadget Vault BD"
-                value={sellerName}
-                onChange={(e) => setSellerName(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-lg bg-[#F6F8FA] border border-[#E4E9ED] text-[#192B38] placeholder-slate-400 focus:outline-none focus:border-[#087E78] focus:bg-white"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="font-bold text-[#192B38]">
-                {language === 'bn' ? 'প্ল্যাটফর্ম:' : 'Platform:'}
-              </label>
-              <select
-                value={platform}
-                onChange={(e) => setPlatform(e.target.value as PlatformType)}
-                className="w-full px-3.5 py-2 rounded-lg bg-[#F6F8FA] border border-[#E4E9ED] text-[#192B38] focus:outline-none focus:border-[#087E78] focus:bg-white"
-              >
-                <option value="facebook_page">Facebook Page / F-Commerce</option>
-                <option value="daraz">Daraz Marketplace</option>
-                <option value="chaldal">Chaldal / E-commerce</option>
-                <option value="standalone_website">Standalone Website</option>
-                <option value="physical_store">Physical Retail Shop</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Section C: Financial Consideration & TrxID */}
-          <div className="p-4 rounded-xl bg-[#F6F8FA] border border-[#E4E9ED] space-y-4">
-            <div className="font-bold text-[#087E78] flex items-center space-x-1.5">
-              <DollarSign className="w-4 h-4" />
-              <span>{language === 'bn' ? 'আর্থিক লেনদেন ও ট্রানজেকশন তথ্য:' : 'Financial Consideration & TrxID:'}</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs text-[#657481]">
-                  {language === 'bn' ? 'পরিশোধিত মূল্য (টাকা):' : 'Paid Amount (BDT):'}
-                </label>
-                <input
-                  type="number"
-                  placeholder="e.g. 8500"
-                  value={purchasePrice}
-                  onChange={(e) => setPurchasePrice(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-lg bg-white border border-[#E4E9ED] text-[#192B38] font-mono focus:outline-none focus:border-[#087E78]"
-                />
+                    ? 'পরিশোধিত মূল্য, লেনদেন নম্বর এবং ধারা ৬০ অনুসারে কারণ উদ্ভবের তারিখ।'
+                    : 'Payment amount, transaction ID, and cause-of-action date for Section 60.'}
+                </p>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs text-[#657481]">
-                  {language === 'bn' ? 'বাজারদর / MSRP (টাকা):' : 'MSRP / Regular Price:'}
-                </label>
-                <input
-                  type="number"
-                  placeholder="e.g. 38000"
-                  value={fairMarketPrice}
-                  onChange={(e) => setFairMarketPrice(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-lg bg-white border border-[#E4E9ED] text-[#192B38] font-mono focus:outline-none focus:border-[#087E78]"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[#172B3A]">
+                    {language === 'bn' ? 'পরিশোধিত মূল্য (টাকা):' : 'Paid Amount (BDT):'}
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 8500"
+                    value={purchasePrice}
+                    onChange={(e) => setPurchasePrice(e.target.value)}
+                    className="w-full px-3 py-2 rounded bg-[#F5F7F5] border border-[#DDE4DF] text-[#26352E] font-mono focus:outline-none focus:border-[#176B53]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[#172B3A]">
+                    {language === 'bn' ? 'বাজারদর / MSRP (টাকা):' : 'MSRP / Regular Price:'}
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 38000"
+                    value={fairMarketPrice}
+                    onChange={(e) => setFairMarketPrice(e.target.value)}
+                    className="w-full px-3 py-2 rounded bg-[#F5F7F5] border border-[#DDE4DF] text-[#26352E] font-mono focus:outline-none focus:border-[#176B53]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[#172B3A]">
+                    {language === 'bn' ? 'লেনদেন আইডি / TrxID:' : 'MFS TrxID / Ref:'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. BK9X81729L"
+                    value={transactionRef}
+                    onChange={(e) => setTransactionRef(e.target.value)}
+                    className="w-full px-3 py-2 rounded bg-[#F5F7F5] border border-[#DDE4DF] text-[#26352E] font-mono uppercase focus:outline-none focus:border-[#176B53]"
+                  />
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs text-[#657481]">
-                  {language === 'bn' ? 'লেনদেন আইডি / TrxID:' : 'MFS TrxID / Ref:'}
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. BK9X81729L"
-                  value={transactionRef}
-                  onChange={(e) => setTransactionRef(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-lg bg-white border border-[#E4E9ED] text-[#192B38] font-mono uppercase focus:outline-none focus:border-[#087E78]"
-                />
-              </div>
-            </div>
-          </div>
+              {/* Explicit 3-Date Distinction: Purchase Date, Incident Date, Cause-of-Action Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* 1. Purchase / Order Date */}
+                <div className="p-3 rounded bg-[#F5F7F5] border border-[#DDE4DF] space-y-1">
+                  <label className="font-semibold text-[#172B3A] flex items-center space-x-1 text-xs">
+                    <Calendar className="w-3.5 h-3.5 text-[#526359]" />
+                    <span>{language === 'bn' ? 'ক্রয় / অর্ডারের তারিখ:' : 'Purchase / Order Date:'}</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={purchaseDate}
+                    onChange={(e) => setPurchaseDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded bg-white border border-[#DDE4DF] text-[#26352E] focus:outline-none focus:border-[#176B53] text-xs"
+                  />
+                  <span className="text-xs text-[#526359] block">
+                    {language === 'bn' ? 'পণ্য বা সেবা কেনার দিন' : 'When order placed'}
+                  </span>
+                </div>
 
-          {/* Section D: Multi-File Genuine Evidence Upload */}
-          <div className="p-4 rounded-xl bg-[#F6F8FA] border border-[#E4E9ED] space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="font-bold text-[#087E78] flex items-center space-x-1.5">
-                <Upload className="w-4 h-4" />
-                <span>{language === 'bn' ? 'ডিজিটাল প্রমাণপত্র আপলোড (JPG, PNG, WebP, PDF):' : 'Upload Evidence Files:'}</span>
-              </div>
-              <span className="text-[11px] text-[#657481] font-mono">
-                {uploadedFiles.length} {language === 'bn' ? 'টি ফাইল সংযুক্ত' : 'files attached'}
-              </span>
-            </div>
+                {/* 2. Incident / Discovery Date */}
+                <div className="p-3 rounded bg-[#F5F7F5] border border-[#DDE4DF] space-y-1">
+                  <label className="font-semibold text-[#172B3A] flex items-center space-x-1 text-xs">
+                    <Calendar className="w-3.5 h-3.5 text-[#526359]" />
+                    <span>{language === 'bn' ? 'ঘটনা / ত্রুটি জানার তারিখ:' : 'Incident / Discovery Date:'}</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={incidentDate}
+                    onChange={(e) => setIncidentDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded bg-white border border-[#DDE4DF] text-[#26352E] focus:outline-none focus:border-[#176B53] text-xs"
+                  />
+                  <span className="text-xs text-[#526359] block">
+                    {language === 'bn' ? 'পণ্য পাওয়া বা ত্রুটি শনাক্তের দিন' : 'Defect noticed date'}
+                  </span>
+                </div>
 
-            <label className="border-2 border-dashed border-[#CBD5E1] hover:border-[#087E78] rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition bg-white">
-              <Upload className="w-6 h-6 text-[#8E9BA7] mb-1" />
-              <span className="text-xs font-semibold text-[#192B38]">
+                {/* 3. Confirmed Cause of Action Date for Section 60 */}
+                <div className="p-3 rounded bg-[#FEF7EC] border border-[#FDE68A] space-y-1">
+                  <label className="font-bold text-[#945607] flex items-center space-x-1 text-xs">
+                    <Calendar className="w-3.5 h-3.5 text-[#945607]" />
+                    <span>{language === 'bn' ? 'কারণ উদ্ভবের তারিখ (ধারা ৬০):' : 'Cause-of-Action (S.60):'}</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={causeOfActionDate}
+                    onChange={(e) => setCauseOfActionDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded bg-white border border-[#DDE4DF] text-[#26352E] focus:outline-none focus:border-[#945607] text-xs"
+                  />
+                  <span className="text-xs text-[#945607] block">
+                    {language === 'bn' ? 'প্রতিকারের অধিকার সৃষ্টির দিন' : 'Breach / cause arose'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Informational Section 60 Educational Box */}
+              <div className="p-3 rounded bg-[#F5F7F5] border border-[#DDE4DF] text-xs text-[#526359] leading-relaxed">
                 {language === 'bn'
-                  ? 'ক্রয় রসিদ, ফেসবুক বিজ্ঞাপনের স্ক্রিনশট ও চ্যাট হিস্ট্রি ফাইল টানুন বা ব্রাউজ করুন'
-                  : 'Click or drag receipt, advertisement screenshot & chat history'}
-              </span>
-              <span className="text-[10px] text-[#8E9BA7] mt-0.5">
-                সমর্থিত ফরম্যাট: JPG, JPEG, PNG, WebP, PDF (সর্বোচ্চ ১০ এমবি)
-              </span>
-              <input
-                type="file"
-                multiple
-                accept="image/png,image/jpeg,image/webp,application/pdf"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </label>
-
-            <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-900 leading-snug flex items-start space-x-1.5">
-              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <span>
-                {language === 'bn'
-                  ? 'গোপনীয়তা সতর্কতা: ছবিতে থাকা ব্যক্তিগত তথ্য (NID, ব্যাংক অ্যাকাউন্ট, পিন) স্বয়ংক্রিয়ভাবে ফিল্টার হয় না। আপনি যে ছবিগুলো নির্বাচন করবেন কেবল সেগুলোই ক্লাউড এআই প্রোভাইডারের কাছে যাবে। আপনি চাইলে সম্পূর্ণ লোকাল অফলাইন মোড ব্যবহার করতে পারেন।'
-                  : 'Privacy Advisory: Image pixels are not automatically redacted. Only files explicitly checked will be transmitted to the external cloud model. Local-only inspection is always available.'}
-              </span>
+                  ? 'ভোক্তা অধিকার সংরক্ষণ আইন, ২০০৯-এর ধারা ৬০ অনুযায়ী কারণ উদ্ভব হওয়ার ৩০ দিনের মধ্যে লিখিত অভিযোগ দায়ের করতে হয়। কারণ উদ্ভবের তারিখ পরিস্থিতি অনুযায়ী নির্ধারিত হতে পারে।'
+                  : 'Under Section 60 of the Consumer Rights Protection Act, 2009, a written complaint must be lodged within 30 days of the cause of action arising. The date of cause of action is determined by individual circumstances.'}
+              </div>
             </div>
+          )}
 
-            {/* Uploaded File List with Thumbnail Preview and Selective Cloud Inclusion */}
-            {uploadedFiles.length > 0 && (
-              <div className="space-y-2 pt-2">
-                <span className="text-xs font-semibold text-[#192B38] block">
-                  {language === 'bn' ? 'সংযুক্ত নথিপত্র ও ক্লাউড ট্রান্সমিশন নির্বাচন:' : 'Attached Evidence & Cloud Transmission Choices:'}
+          {/* STEP 3: Multi-File Evidence Upload */}
+          {currentStep === 3 && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="border-b border-[#DDE4DF] pb-2">
+                <h4 className="font-bold text-[#172B3A] text-sm">
+                  {language === 'bn' ? '৩. ডিজিটাল প্রমাণপত্র সংযুক্তি' : '3. Evidence Documents Upload'}
+                </h4>
+                <p className="text-xs text-[#526359]">
+                  {language === 'bn'
+                    ? 'পেমেন্ট রসিদ, চালান, চ্যাট স্ক্রিনশট বা পণ্য ডেলিভারির স্লিপ।'
+                    : 'Attach payment receipts, chat logs, or courier delivery slips.'}
+                </p>
+              </div>
+
+              <label className="ks-dropzone group p-6 flex flex-col items-center justify-center cursor-pointer">
+                <Upload className="w-7 h-7 text-[#176B53] group-hover:scale-110 transition-transform duration-standard mb-2" />
+                <span className="text-sm font-semibold text-[#172B3A]">
+                  {language === 'bn'
+                    ? 'ক্রয় রসিদ, ইনভয়েস ও চ্যাট হিস্ট্রি ফাইল টানুন বা ব্রাউজ করুন'
+                    : 'Click or drag receipt, invoice & chat screenshot files'}
                 </span>
-                {uploadedFiles.map((f, idx) => {
-                  const isImage = f.type.startsWith('image/');
-                  const isIncludedInCloud = cloudIncludedFiles.has(f.name);
-                  return (
-                    <div
-                      key={`${f.name}-${idx}`}
-                      className="p-2.5 rounded-lg bg-white border border-[#E4E9ED] flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                    >
-                      <div className="flex items-center space-x-2.5 truncate">
-                        {isImage ? (
-                          <div className="w-8 h-8 rounded bg-[#F6F8FA] border border-[#E4E9ED] overflow-hidden shrink-0 flex items-center justify-center">
-                            <img
-                              src={URL.createObjectURL(f)}
-                              alt={f.name}
-                              className="w-full h-full object-cover"
-                              onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
-                            />
+                <span className="text-xs text-[#526359] mt-1">
+                  সমর্থিত ফরম্যাট: JPG, JPEG, PNG, WebP, PDF (সর্বোচ্চ ১০ এমবি)
+                </span>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/png,image/jpeg,image/webp,application/pdf"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </label>
+
+              {/* Uploaded Files List */}
+              {uploadedFiles.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <span className="text-xs font-bold text-[#172B3A] block">
+                    {language === 'bn' ? 'সংযুক্ত নথিপত্রসমূহ:' : 'Attached Evidence Files:'}
+                  </span>
+                  {uploadedFiles.map((f, idx) => {
+                    const isImage = f.type.startsWith('image/');
+                    const isIncludedInCloud = cloudIncludedFiles.has(f);
+                    return (
+                      <div
+                        key={`${f.name}-${idx}`}
+                        className="p-3 rounded bg-white border border-[#DDE4DF] flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                      >
+                        <div className="flex items-center space-x-3 truncate">
+                          {isImage ? (
+                            <div className="w-8 h-8 rounded bg-[#F5F7F5] border border-[#DDE4DF] overflow-hidden shrink-0 flex items-center justify-center">
+                              <img
+                                src={URL.createObjectURL(f)}
+                                alt={f.name}
+                                className="w-full h-full object-cover"
+                                onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-8 h-8 rounded bg-rose-50 text-rose-600 border border-rose-200 shrink-0 flex items-center justify-center">
+                              <FileText className="w-4 h-4" />
+                            </div>
+                          )}
+                          <div className="truncate">
+                            <span className="truncate text-[#26352E] text-xs font-medium block">{f.name}</span>
+                            <span className="text-xs text-[#526359] font-mono">
+                              {(f.size / 1024).toFixed(0)} KB • {isImage ? 'ইমেজ' : 'পিডিএফ'}
+                            </span>
                           </div>
-                        ) : (
-                          <div className="w-8 h-8 rounded bg-rose-50 text-rose-600 border border-rose-200 shrink-0 flex items-center justify-center">
-                            <FileText className="w-4 h-4" />
-                          </div>
-                        )}
-                        <div className="truncate">
-                          <span className="truncate text-[#192B38] text-xs font-medium block">{f.name}</span>
-                          <span className="text-[10px] text-[#8E9BA7] font-mono">
-                            {(f.size / 1024).toFixed(0)} KB • {isImage ? 'ইমেজ' : 'পিডিএফ ডকুমেন্ট'}
-                          </span>
+                        </div>
+
+                        <div className="flex items-center space-x-3 shrink-0 self-end sm:self-auto">
+                          {selectedProvider !== 'local_deterministic' && (
+                            <label className="flex items-center space-x-1.5 text-xs text-[#526359] cursor-pointer bg-[#F5F7F5] px-2 py-1 rounded border border-[#DDE4DF]">
+                              <input
+                                type="checkbox"
+                                checked={isIncludedInCloud}
+                                onChange={() => handleToggleCloudInclude(f)}
+                                className="rounded border-[#DDE4DF] text-[#176B53] focus:ring-0 w-3.5 h-3.5"
+                              />
+                              <span>{language === 'bn' ? 'ক্লাউড এআই-তে পাঠান' : 'Send to Cloud'}</span>
+                            </label>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFile(idx)}
+                            className="p-1 text-[#526359] hover:text-[#B42318] transition"
+                            aria-label="Remove file"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
-                      <div className="flex items-center space-x-3 shrink-0 self-end sm:self-auto">
-                        {selectedProvider !== 'local_deterministic' && (
-                          <label className="flex items-center space-x-1.5 text-[11px] text-[#657481] cursor-pointer bg-[#F6F8FA] px-2 py-1 rounded border border-[#E4E9ED]">
-                            <input
-                              type="checkbox"
-                              checked={isIncludedInCloud}
-                              onChange={() => handleToggleCloudInclude(f.name)}
-                              className="rounded border-[#CBD5E1] text-[#087E78] focus:ring-0 w-3.5 h-3.5"
-                            />
-                            <span>{language === 'bn' ? 'ক্লাউড এআই-তে পাঠান' : 'Send to Cloud AI'}</span>
-                          </label>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveFile(idx)}
-                          className="p-1 text-[#8E9BA7] hover:text-rose-600 transition"
-                          aria-label="Remove file"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+          {/* STEP 4: Complainant Details & Incident Narrative */}
+          {currentStep === 4 && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="border-b border-[#DDE4DF] pb-2">
+                <h4 className="font-bold text-[#172B3A] text-sm">
+                  {language === 'bn' ? '৪. অভিযোগকারী নাগরিকের তথ্য ও ঘটনার বিবরণ' : '4. Complainant & Incident Details'}
+                </h4>
+                <p className="text-xs text-[#526359]">
+                  {language === 'bn'
+                    ? 'অভিযোগপত্র খসড়ায় ব্যবহারের জন্য আপনার নাম, মোবাইল এবং সুনির্দিষ্ট বিবরণ।'
+                    : 'Contact information and statement of facts for the complaint draft.'}
+                </p>
               </div>
-            )}
-          </div>
 
-          {/* Section E: Complainant Details & Incident Narrative */}
-          <div className="space-y-3 pt-2 border-t border-[#EDF1F4]">
-            <div className="font-bold text-[#192B38] flex items-center space-x-1.5">
-              <User className="w-4 h-4 text-[#087E78]" />
-              <span>{language === 'bn' ? 'অভিযোগকারী নাগরিকের তথ্য ও ঘটনার বিবরণ:' : 'Complainant & Incident Details:'}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <input
+                  type="text"
+                  placeholder="আপনার নাম (Complainant Name)"
+                  value={complainantName}
+                  onChange={(e) => setComplainantName(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[#F5F7F5] border border-[#DDE4DF] text-[#26352E] focus:outline-none focus:border-[#176B53] focus:bg-white text-xs sm:text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="মোবাইল নম্বর (Phone)"
+                  value={complainantPhone}
+                  onChange={(e) => setComplainantPhone(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[#F5F7F5] border border-[#DDE4DF] text-[#26352E] focus:outline-none focus:border-[#176B53] focus:bg-white text-xs sm:text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="ঠিকানা (Address)"
+                  value={complainantAddress}
+                  onChange={(e) => setComplainantAddress(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[#F5F7F5] border border-[#DDE4DF] text-[#26352E] focus:outline-none focus:border-[#176B53] focus:bg-white text-xs sm:text-sm"
+                />
+              </div>
+
+              <textarea
+                rows={4}
+                placeholder="ঘটনার সংক্ষিপ্ত ধারাবাহিক বিবরণ (e.g. গত ১২ অক্টোবর ৩ দিনে ডেলিভারির প্রতিশ্রুতি দিয়ে অগ্রিম টাকা নিয়ে পণ্য পাঠায়নি...)"
+                value={incidentDetail}
+                onChange={(e) => setIncidentDetail(e.target.value)}
+                className="w-full p-3 rounded bg-[#F5F7F5] border border-[#DDE4DF] text-[#26352E] leading-relaxed focus:outline-none focus:border-[#176B53] focus:bg-white text-xs sm:text-sm"
+              />
+
+              {/* Processing & Privacy Configuration Drawer */}
+              <div className="p-3.5 rounded bg-[#F5F7F5] border border-[#DDE4DF] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2 text-xs font-bold text-[#172B3A]">
+                    <ShieldCheck className="w-4 h-4 text-[#176B53]" />
+                    <span>
+                      {language === 'bn' ? 'প্রসেসিং মোড:' : 'Processing Mode:'}
+                    </span>
+                    <span className="text-xs px-2 py-0.5 rounded bg-[#EAF3EE] text-[#176B53] font-bold">
+                      {selectedProvider === 'local_deterministic' ? (language === 'bn' ? 'অফলাইন লোকাল ইঞ্জিন' : 'Local Offline Engine') : 'Consented Cloud AI'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAiSettings(!showAiSettings)}
+                    className="text-xs font-semibold text-[#176B53] hover:underline flex items-center space-x-1"
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                    <span>{showAiSettings ? (language === 'bn' ? 'লুকান' : 'Hide') : (language === 'bn' ? 'কনফিগারেশন' : 'Configure')}</span>
+                  </button>
+                </div>
+
+                {showAiSettings && (
+                  <div className="p-3 rounded bg-white border border-[#DDE4DF] space-y-3 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <label className={`p-2.5 rounded border cursor-pointer ${selectedProvider === 'local_deterministic' ? 'bg-[#EAF3EE] border-[#176B53] text-[#176B53] font-bold' : 'bg-[#F5F7F5] border-[#DDE4DF] text-[#526359]'}`}>
+                        <div className="flex items-center space-x-1.5">
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>লোকাল অফলাইন মোড</span>
+                        </div>
+                        <span className="text-xs block text-[#526359] font-normal mt-0.5">১০০% ডিভাইসে সীমাবদ্ধ</span>
+                        <input
+                          type="radio"
+                          name="provider"
+                          className="hidden"
+                          checked={selectedProvider === 'local_deterministic'}
+                          onChange={() => setSelectedProvider('local_deterministic')}
+                        />
+                      </label>
+
+                      <label className={`p-2.5 rounded border cursor-pointer ${selectedProvider === 'gemini' ? 'bg-[#EAF3EE] border-[#176B53] text-[#176B53] font-bold' : 'bg-[#F5F7F5] border-[#DDE4DF] text-[#526359]'}`}>
+                        <div className="flex items-center space-x-1.5">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Google Gemini AI</span>
+                        </div>
+                        <span className="text-xs block text-[#526359] font-normal mt-0.5">ঐচ্ছিক ভিশন মডেল</span>
+                        <input
+                          type="radio"
+                          name="provider"
+                          className="hidden"
+                          checked={selectedProvider === 'gemini'}
+                          onChange={() => setSelectedProvider('gemini')}
+                        />
+                      </label>
+                    </div>
+
+                    {selectedProvider !== 'local_deterministic' && (
+                      <div className="space-y-2 pt-2 border-t border-[#DDE4DF]">
+                        <input
+                          type="password"
+                          placeholder="আপনার সাময়িক API Key প্রদান করুন (ঐচ্ছিক)"
+                          value={ephemeralApiKey}
+                          onChange={(e) => setEphemeralApiKey(e.target.value)}
+                          className="w-full px-3 py-1.5 rounded border border-[#DDE4DF] bg-white text-[#26352E] font-mono text-xs focus:outline-none focus:border-[#176B53]"
+                        />
+                        <label className="flex items-start space-x-2 cursor-pointer pt-1">
+                          <input
+                            type="checkbox"
+                            checked={userConsentedToCloud}
+                            onChange={(e) => setUserConsentedToCloud(e.target.checked)}
+                            className="mt-0.5 rounded border-[#DDE4DF] text-[#176B53] focus:ring-0"
+                          />
+                          <span className="text-xs text-[#526359] leading-snug">
+                            আমি নির্বাচিত তথ্য Google-এর ক্লাউড এআই সেবায় পাঠাতে সম্মতি দিচ্ছি। কিছু ফোন নম্বর, এনআইডি ও ইমেইল-ধাঁচের তথ্য লেখার মধ্যে মাস্ক করা হয়; ছবি বা স্ক্যান করা নথিতে থাকা তথ্য মাস্ক নাও হতে পারে।
+                          </span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
+          )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <input
-                type="text"
-                placeholder="আপনার নাম (Complainant Name)"
-                value={complainantName}
-                onChange={(e) => setComplainantName(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-[#F6F8FA] border border-[#E4E9ED] text-[#192B38] focus:outline-none focus:border-[#087E78] focus:bg-white text-xs sm:text-sm"
-              />
-              <input
-                type="text"
-                placeholder="মোবাইল নম্বর (Phone)"
-                value={complainantPhone}
-                onChange={(e) => setComplainantPhone(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-[#F6F8FA] border border-[#E4E9ED] text-[#192B38] focus:outline-none focus:border-[#087E78] focus:bg-white text-xs sm:text-sm"
-              />
-              <input
-                type="text"
-                placeholder="ঠিকানা (Address)"
-                value={complainantAddress}
-                onChange={(e) => setComplainantAddress(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-[#F6F8FA] border border-[#E4E9ED] text-[#192B38] focus:outline-none focus:border-[#087E78] focus:bg-white text-xs sm:text-sm"
-              />
+          {/* STEP 5: Final Review & Confirmation */}
+          {currentStep === 5 && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="border-b border-[#DDE4DF] pb-2">
+                <h4 className="font-bold text-[#172B3A] text-sm">
+                  {language === 'bn' ? '৫. তথ্য পর্যালোচনা ও নিশ্চিতকরণ' : '5. Review & Final Confirmation'}
+                </h4>
+                <p className="text-xs text-[#526359]">
+                  {language === 'bn'
+                    ? 'সংরক্ষণ ও অভিযোগ খসড়া তৈরির পূর্বে আপনার প্রদত্ত তথ্য যাচাই করে নিন।'
+                    : 'Verify your submitted details before saving and generating the draft.'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-[#F5F7F5] p-4 rounded border border-[#DDE4DF]">
+                <div>
+                  <span className="text-[#526359] block">{language === 'bn' ? 'পণ্য:' : 'Product:'}</span>
+                  <strong className="text-[#26352E]">{productName || 'অনলাইন ক্রয় বিরোধ'}</strong>
+                </div>
+                <div>
+                  <span className="text-[#526359] block">{language === 'bn' ? 'বিক্রেতা:' : 'Seller:'}</span>
+                  <strong className="text-[#26352E]">{sellerName || 'অনির্দিষ্ট বিক্রেতা'}</strong>
+                </div>
+                <div>
+                  <span className="text-[#526359] block">{language === 'bn' ? 'পরিশোধিত মূল্য:' : 'Paid Amount:'}</span>
+                  <strong className="text-[#26352E] font-mono">{purchasePrice ? `৳${purchasePrice}` : 'উল্লিখিত নয়'}</strong>
+                </div>
+                <div>
+                  <span className="text-[#526359] block">{language === 'bn' ? 'লেনদেন আইডি:' : 'TrxID:'}</span>
+                  <strong className="text-[#26352E] font-mono">{transactionRef || 'উল্লিখিত নয়'}</strong>
+                </div>
+                <div>
+                  <span className="text-[#526359] block">{language === 'bn' ? 'ক্রয় / অর্ডারের তারিখ:' : 'Purchase Date:'}</span>
+                  <strong className="text-[#26352E]">{purchaseDate || (language === 'bn' ? 'দেওয়া হয়নি' : 'Not provided')}</strong>
+                </div>
+                <div>
+                  <span className="text-[#526359] block">{language === 'bn' ? 'ঘটনা / ত্রুটি জানার তারিখ:' : 'Incident Date:'}</span>
+                  <strong className="text-[#26352E]">{incidentDate || (language === 'bn' ? 'দেওয়া হয়নি' : 'Not provided')}</strong>
+                </div>
+                <div>
+                  <span className="text-[#526359] block">{language === 'bn' ? 'কারণ উদ্ভবের তারিখ (ধারা ৬০):' : 'Cause of Action Date (S.60):'}</span>
+                  <strong className="text-[#176B53]">{causeOfActionDate || (language === 'bn' ? 'ফাঁকা (পরবর্তীতে যুক্ত করুন)' : 'Blank (Add later)')}</strong>
+                </div>
+                <div>
+                  <span className="text-[#526359] block">{language === 'bn' ? 'সংযুক্ত ফাইল:' : 'Attached Evidence:'}</span>
+                  <strong className="text-[#26352E]">{uploadedFiles.length} টি ফাইল</strong>
+                </div>
+              </div>
+
+              {(!causeOfActionDate || uploadedFiles.length === 0) && (
+                <div className="p-3 rounded bg-amber-50 border border-amber-300 text-xs text-amber-950 leading-relaxed" role="status">
+                  <strong>{language === 'bn' ? 'পর্যালোচনার জন্য প্রয়োজনীয় তথ্য' : 'Details to review'}</strong>
+                  <ul className="mt-1 list-disc pl-5 space-y-1">
+                    {!causeOfActionDate && (
+                      <li>{language === 'bn'
+                        ? 'ধারা ৬০-এর সময় গণনার জন্য কারণ উদ্ভবের তারিখ নিশ্চিত করুন। তারিখ অনিশ্চিত হলে অনুমান করবেন না; DNCRP-এর সঙ্গে যাচাই করুন।'
+                        : 'Confirm the cause-of-action date to calculate the Section 60 window. If unsure, do not guess; check with DNCRP.'}</li>
+                    )}
+                    {uploadedFiles.length === 0 && (
+                      <li>{language === 'bn'
+                        ? 'এখনো কোনো প্রমাণ ফাইল যোগ করা হয়নি। প্রমাণ থাকলে পরে যোগ করতে পারবেন; দাখিলের নিয়ম DNCRP-এর সঙ্গে যাচাই করুন।'
+                        : 'No evidence files are attached yet. You can add them later if available; confirm filing requirements with DNCRP.'}</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {/* Legal Notice */}
+              <div className="p-3 rounded bg-[#EAF3EE] border border-[#ABCFC3] text-xs text-[#124A3B] leading-relaxed">
+                {language === 'bn'
+                  ? 'স্মারকলিপি: সাবমিট বাটনে ক্লিক করলে আপনার তথ্য ব্রাউজারের স্থানীয় স্টোরেজে সংরক্ষিত হবে এবং একটি প্রাথমিক অভিযোগপত্র তৈরি হবে।'
+                  : 'Notice: Clicking submit saves data to your local browser storage and generates a structured citizen draft.'}
+              </div>
             </div>
-
-            <textarea
-              rows={3}
-              placeholder="ঘটনার সংক্ষিপ্ত বিবরণ (e.g. ৩ দিনে ডেলিভারির প্রতিশ্রুতি দিয়ে অগ্রিম টাকা নিয়ে পণ্য পাঠায়নি...)"
-              value={incidentDetail}
-              onChange={(e) => setIncidentDetail(e.target.value)}
-              className="w-full p-3 rounded-lg bg-[#F6F8FA] border border-[#E4E9ED] text-[#192B38] placeholder-slate-400 leading-relaxed focus:outline-none focus:border-[#087E78] focus:bg-white"
-            />
-          </div>
-
-          {/* Legal Disclaimer Callout with Correct DNCRP Email */}
-          <div className="p-3 rounded-lg bg-[#EEF5FB] border border-[#B6CEE0] text-[11px] text-[#1B65A4] flex items-start space-x-2">
-            <AlertCircle className="w-4 h-4 text-[#1B65A4] shrink-0 mt-0.5" />
-            <span>
-              {language === 'bn'
-                ? 'আইনি ঘোষণা: কেনাসাথী একটি স্বাধীন সিভিক-টেক প্ল্যাটফর্ম। ধারা ৬০ অনুযায়ী ঘটনার ৩০ দিনের মধ্যে নালিশ আবশ্যক। জাতীয় ভোক্তা অভিযোগ কেন্দ্রের অফিশিয়াল ইমেইল: nccc@dncrp.gov.bd এবং সরাসরি পোর্টাল: ccms.dncrp.com।'
-                : 'Disclaimer: Independent civic-tech platform under CRPA 2009. Section 60 mandates complaint within 30 days. National Consumer Complaint Centre email: nccc@dncrp.gov.bd; portal: ccms.dncrp.com.'}
-            </span>
-          </div>
+          )}
 
           {/* Progress Indicator */}
           {isProcessing && (
-            <div className="p-3 rounded-lg bg-[#E8F5F2] border border-[#A3D7CB] text-[#087E78] font-mono text-center flex items-center justify-center space-x-2">
-              <div className="w-3.5 h-3.5 rounded-full border-2 border-[#087E78] border-t-transparent animate-spin" />
+            <div className="p-3 rounded bg-[#EAF3EE] border border-[#ABCFC3] text-[#176B53] font-mono text-center flex items-center justify-center space-x-2">
+              <div className="w-4 h-4 rounded-full border-2 border-[#176B53] border-t-transparent animate-spin" />
               <span>{progressMsg}</span>
             </div>
           )}
 
-          {/* Modal Actions */}
-          <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#EDF1F4]">
+          {processingError && (
+            <div className="p-3 rounded bg-rose-50 border border-rose-300 text-rose-900 text-sm leading-relaxed" role="alert">
+              {processingError}
+            </div>
+          )}
+
+          {/* Stepper Navigation Footer */}
+          <div className="flex items-center justify-between pt-4 border-t border-[#DDE4DF]">
             <button
               type="button"
               disabled={isProcessing}
@@ -647,18 +904,45 @@ export const NewDisputeModal: React.FC<NewDisputeModalProps> = ({
             >
               {language === 'bn' ? 'বাতিল' : 'Cancel'}
             </button>
-            <button
-              type="submit"
-              disabled={isProcessing}
-              className="ks-btn ks-btn-teal text-xs font-bold shadow-sm"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>
-                {isProcessing
-                  ? (language === 'bn' ? 'বিশ্লেষণ চলছে...' : 'Auditing...')
-                  : (language === 'bn' ? 'ফরেনসিক অডিট ও নালিশ প্রস্তুত করুন' : 'Run Audit & Prepare Complaint')}
-              </span>
-            </button>
+
+            <div className="flex items-center space-x-2">
+              {currentStep > 1 && (
+                <button
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={() => setCurrentStep((prev) => prev - 1)}
+                  className="ks-btn ks-btn-secondary text-xs flex items-center space-x-1"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>{language === 'bn' ? 'পূর্ববর্তী' : 'Previous'}</span>
+                </button>
+              )}
+
+              {currentStep < 5 ? (
+                <button
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={() => setCurrentStep((prev) => prev + 1)}
+                  className="ks-btn ks-btn-primary group text-xs font-bold flex items-center space-x-1"
+                >
+                  <span>{language === 'bn' ? 'পরবর্তী ধাপ' : 'Next Step'}</span>
+                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-standard ease-standard group-hover:translate-x-[2px]" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={isProcessing}
+                  className="ks-btn ks-btn-primary text-xs font-bold shadow-sm flex items-center space-x-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>
+                    {isProcessing
+                      ? (language === 'bn' ? 'বিশ্লেষণ চলছে...' : 'Auditing...')
+                      : (language === 'bn' ? 'সংরক্ষণ ও খসড়া প্রস্তুত করুন' : 'Save & Prepare Draft')}
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
         </form>
       </div>

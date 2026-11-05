@@ -3,6 +3,7 @@ import { ConsumerInspectionResult } from '../types/consumer';
 export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
   airpods_scam: {
     id: 'CASE-BD-2026-8812',
+    isDemo: true,
     createdAt: '2026-11-02T14:30:00Z',
     productName: 'Apple AirPods Pro (2nd Generation with MagSafe)',
     productBrand: 'Apple (Claimed)',
@@ -11,9 +12,7 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
     grievanceType: 'counterfeit_product',
     claimedPurchasePriceBdt: 4500,
     fairMarketPriceBdt: 28500,
-    trustScore: 14,
     riskTier: 'critical_fraud',
-    confidenceScore: 98.4,
     evidenceItems: [
       {
         id: 'ev-1',
@@ -24,7 +23,6 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
         anomalyDetected: true,
         anomalyDescriptionBn: 'ব্যক্তিগত বিকাশ নম্বরে সেন্ড মানি (মার্চেন্ট পেমেন্ট নয়, ট্যাক্স ফাঁকি)',
         anomalyDescriptionEn: 'Personal bKash wallet P2P transaction; no merchant invoice',
-        forensicConfidence: 99.1,
       },
       {
         id: 'ev-2',
@@ -35,7 +33,6 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
         anomalyDetected: true,
         anomalyDescriptionBn: 'অ্যাপলের মাইক্রো-টাইপোগ্রাফি অসংগতি ও জাল হলোগ্রাম ফয়েল স্টিকার শনাক্ত',
         anomalyDescriptionEn: 'Micro-typography kerning flaws and counterfeit foil holographic sticker',
-        forensicConfidence: 97.8,
       },
       {
         id: 'ev-3',
@@ -46,7 +43,6 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
         anomalyDetected: true,
         anomalyDescriptionBn: 'ওয়ারেন্টি চাওয়ার পর পেজ থেকে ক্রেতাকে ব্লক করা হয়েছে',
         anomalyDescriptionEn: 'Seller blocked buyer immediately after warranty/refund demand',
-        forensicConfidence: 100,
       },
     ],
     riskBreakdown: [
@@ -118,7 +114,6 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
           'Box font weight and QR checksum failed Apple GS1 authenticity matrix',
           'Low-grade adhesive foil sticker easily peels, failing thermal resistance check',
         ],
-        confidence: 99.2,
       },
       {
         agentId: 'price',
@@ -136,7 +131,6 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
           'Quoted price BDT 4,500 is mathematically below statutory import duty alone',
           'Classified as unauthorized counterfeit radio-frequency consumer equipment',
         ],
-        confidence: 98.9,
       },
       {
         agentId: 'seller',
@@ -154,7 +148,6 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
           'Page admin multi-location anomaly (Dhaka & Dubai) with 3 prior name alterations',
           'Review section contains synthetic bot clusters inflating seller rating',
         ],
-        confidence: 96.5,
       },
       {
         agentId: 'statute',
@@ -166,13 +159,12 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
         timestamp: '14:30:08',
         findingsBn: [
           'ধারা ৪৪ ও ৪৫ এর অধীন সরাসরি দণ্ডনীয় অপরাধ (সর্বোচ্চ ১ বছর কারাদণ্ড বা ৫০,০০০ টাকা জরিমানা)',
-          'ধারা ৭৬(৪) অনুসারে ক্রেতা/অভিযোগকারী জরিমানার ২৫% (১২,৫০০ টাকা) নগদ পুরস্কারের দাবিদার',
+          'ধারা ৭৬(৪) অনুযায়ী আদায়কৃত জরিমানার একটি শর্তাধীন অংশ অভিযোগকারীকে প্রদেয় হতে পারে। এটি কোনো নিশ্চিত ক্ষতিপূরণ বা অর্থপ্রাপ্তির নিশ্চয়তা নয়।',
         ],
         findingsEn: [
           'Direct violations under Sections 44 & 45 (up to 1 yr imprisonment / BDT 50,000 fine)',
-          'Under Section 76(4), complainant is statutorily entitled to 25% (BDT 12,500) of collected fine',
+          'Under Section 76(4), a conditional share of realized administrative fines may be disbursed to complainant; not guaranteed compensation.',
         ],
-        confidence: 99.5,
       },
     ],
     applicableViolations: [
@@ -275,14 +267,18 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
       ],
       claimedRefundBdt: 4500,
       statutoryFineEstimatedBdt: 50000,
-      whistleblowerRewardBdt: 12500, // 25% of 50,000 BDT fine
+      whistleblowerRewardBdt: 0,
+      statutoryConditionsBn:
+        'ধারা ৭৬(৪) অনুযায়ী আদায়কৃত জরিমানার একটি শর্তাধীন অংশ অভিযোগকারীকে প্রদেয় হতে পারে। এটি কোনো নিশ্চিত ক্ষতিপূরণ বা অর্থপ্রাপ্তির নিশ্চয়তা নয়।',
       submissionEmail: 'nccc@dncrp.gov.bd',
       helpline: '16121',
       limitationRemainingDays: 25,
+      isDemo: true,
     },
   },
   cerave_cosmetics: {
     id: 'CASE-BD-2026-9041',
+    isDemo: true,
     createdAt: '2026-11-01T10:00:00Z',
     productName: 'CeraVe Hydrating Facial Cleanser 473ml',
     productBrand: 'CeraVe (L\'Oréal)',
@@ -291,9 +287,7 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
     grievanceType: 'counterfeit_product',
     claimedPurchasePriceBdt: 950,
     fairMarketPriceBdt: 2200,
-    trustScore: 21,
     riskTier: 'critical_fraud',
-    confidenceScore: 97.2,
     evidenceItems: [
       {
         id: 'ev-1',
@@ -302,7 +296,6 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
         uploadedAt: '2026-11-01 09:40',
         size: '540 KB',
         anomalyDetected: false,
-        forensicConfidence: 99.8,
       },
       {
         id: 'ev-2',
@@ -313,7 +306,6 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
         anomalyDetected: true,
         anomalyDescriptionBn: 'বারকোডটি ইউএসএ জিএস১ ডেটাবেসে রেজিস্টার্ড নয়; লট নম্বরে ভুল ফন্ট',
         anomalyDescriptionEn: 'Barcode unregistered in GS1 global index; counterfeit lot stamp',
-        forensicConfidence: 96.5,
       },
     ],
     riskBreakdown: [
@@ -359,7 +351,6 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
         timestamp: '10:01:00',
         findingsBn: ['বোতলের পাম্প স্প্রিং মেকানিজমে নিম্নমানের প্লাস্টিক শনাক্ত'],
         findingsEn: ['Pump mechanism manufactured from unsterilized industrial-grade plastic'],
-        confidence: 97.4,
       },
       {
         agentId: 'price',
@@ -371,7 +362,6 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
         timestamp: '10:01:03',
         findingsBn: ['ইউএসএ রিটেইল প্রাইস $18.99 (~৳২,৩০০), ৳৯৫০ মূল্যে বিক্রয় স্পষ্ট জালিয়াতি'],
         findingsEn: ['USA retail price $18.99 (~BDT 2,300); BDT 950 reflects counterfeit margins'],
-        confidence: 99.0,
       },
       {
         agentId: 'seller',
@@ -383,7 +373,6 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
         timestamp: '10:01:05',
         findingsBn: ['দারাজে মাত্র ২১টি রেটিং এবং পূর্বে নকল সাবান বিক্রয়ের ৩টি ফ্ল্যাগড রিপোর্ট'],
         findingsEn: ['Seller flagged on 3 previous occasions for substandard soap distributions'],
-        confidence: 95.8,
       },
       {
         agentId: 'statute',
@@ -395,7 +384,6 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
         timestamp: '10:01:08',
         findingsBn: ['ধারা ৪১ অনুযায়ী ২ লক্ষ টাকা পর্যন্ত অর্থদণ্ড প্রযোজ্য'],
         findingsEn: ['Section 41 penalty applies up to BDT 200,000 fine for hazardous adulteration'],
-        confidence: 98.6,
       },
     ],
     applicableViolations: [
@@ -460,10 +448,13 @@ export const SAMPLE_CONSUMER_CASES: Record<string, ConsumerInspectionResult> = {
       ],
       claimedRefundBdt: 950,
       statutoryFineEstimatedBdt: 100000,
-      whistleblowerRewardBdt: 25000, // 25% of 100,000 fine
+      whistleblowerRewardBdt: 0,
+      statutoryConditionsBn:
+        'ধারা ৭৬(৪) অনুযায়ী আদায়কৃত জরিমানার একটি শর্তাধীন অংশ অভিযোগকারীকে প্রদেয় হতে পারে। এটি কোনো নিশ্চিত ক্ষতিপূরণ বা অর্থপ্রাপ্তির নিশ্চয়তা নয়।',
       submissionEmail: 'nccc@dncrp.gov.bd',
       helpline: '16121',
       limitationRemainingDays: 23,
+      isDemo: true,
     },
   },
 };

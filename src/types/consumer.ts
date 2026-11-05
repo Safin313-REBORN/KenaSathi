@@ -49,7 +49,6 @@ export interface ExtractedFact {
   value: string;
   sourceDocId: string;
   sourceDocName: string;
-  confidence?: number; // 0-100 qualitative calibration
   confidenceLabel?: 'pattern_matched' | 'needs_user_confirmation' | 'uncalibrated' | 'model_proposed';
   verified: boolean; // strictly false for raw regex matches; only true if externally or cross-verified
   factStatus?: FactVerificationStatus;
@@ -71,7 +70,6 @@ export interface EvidenceItem {
   anomalyDetected: boolean;
   anomalyDescriptionBn?: string;
   anomalyDescriptionEn?: string;
-  forensicConfidence?: number; // 0-100%
   forensicStatus?: 'pattern_matched' | 'no_signals_detected' | 'uncalibrated_heuristic';
   rawTextSnippet?: string;
   extractedFacts?: ExtractedFact[];
@@ -128,13 +126,13 @@ export interface InspectionAgentStep {
   timestamp: string;
   findingsBn: string[];
   findingsEn: string[];
-  confidence?: number;
   confidenceLabel?: 'pattern_matched' | 'completed' | 'qualitative_only';
 }
 
 export interface DisputeTimelineEvent {
   id: string;
   dateStr: string;
+  dateStrEn?: string;
   titleBn: string;
   titleEn: string;
   detailBn: string;
@@ -172,7 +170,10 @@ export interface DncrpComplaintDossier {
   complaintDraftId?: string; // Explicit Draft identifier
   officialTrackingNumber?: string; // Populated by user once filed on ccms.dncrp.com
   generatedDate: string;
-  incidentDate?: string; // Cause-of-action date
+  incidentDate?: string; // Legacy/standard date identifier
+  purchaseDate?: string; // Date purchase/order was made
+  discoveryDate?: string; // Date breach/defect was discovered
+  causeOfActionDate?: string; // Confirmed date cause of action arose for Section 60
   complainantName: string;
   complainantNidPhone: string;
   complainantAddress: string;
@@ -194,17 +195,21 @@ export interface DncrpComplaintDossier {
   submissionEmail: string; // nccc@dncrp.gov.bd (National Consumer Complaint Centre)
   helpline: string; // 16121
   officialPortalUrl?: string; // https://ccms.dncrp.com/
-  limitationRemainingDays: number | null; // null if incidentDate unknown
+  limitationRemainingDays: number | null; // null if incidentDate/causeOfActionDate unknown
   isTimeBarred?: boolean;
   statutoryConditionsBn?: string;
   attachedEvidenceNames?: string[];
   missingEvidenceNoticeBn?: string;
+  isDemo?: boolean; // Explicit indicator for fictional demonstration presets
 }
 
 export interface ConsumerInspectionResult {
   id: string;
   createdAt: string;
-  incidentDate?: string; // Date cause of action arose
+  incidentDate?: string; // Date cause of action arose (or discovery date)
+  purchaseDate?: string; // Date of order/purchase
+  discoveryDate?: string; // Date defect/fraud was discovered
+  causeOfActionDate?: string; // Confirmed cause-of-action date for Section 60
   productName: string;
   productBrand: string;
   sellerName: string;
@@ -212,9 +217,7 @@ export interface ConsumerInspectionResult {
   grievanceType: ConsumerGrievanceType;
   claimedPurchasePriceBdt: number;
   fairMarketPriceBdt: number;
-  trustScore: number; // 0 to 100
   riskTier: RiskTier;
-  confidenceScore: number;
   evidenceItems: EvidenceItem[];
   riskBreakdown: RiskCategoryItem[];
   agentSteps: InspectionAgentStep[];
@@ -232,4 +235,5 @@ export interface ConsumerInspectionResult {
   statutoryDisclaimerBn?: string;
   statutoryDisclaimerEn?: string;
   userConsentedToAiTransfer?: boolean;
+  isDemo?: boolean; // Explicit indicator for fictional demonstration presets
 }

@@ -8,6 +8,7 @@ import { EvidenceBlobStorage } from './evidenceDb';
 
 const STORAGE_KEYS = {
   CASES: 'kenasathi_cases_v2',
+  CUSTOM_CASES: 'kenasathi_custom_cases_v1',
   TASKS: 'kenasathi_tasks_v2',
   ACTIVITIES: 'kenasathi_activities_v2',
   USER_PROFILE: 'kenasathi_profile_v2',
@@ -50,29 +51,29 @@ const DEFAULT_USER_PROFILE: UserProfile = {
 };
 
 // ============================================================================
-// FICTIONAL DEMO SCENARIO FOR EVALUATOR DEMONSTRATION & BENCHMARK TESTING
+// FICTIONAL DEMO SCENARIO FOR CITIZEN USER DEMONSTRATION & TESTING
 // (Not a real incident; uses synthetic merchant and mock TrxID for testing)
 // ============================================================================
 export const FICTIONAL_HEADPHONE_DEMO_CASE: ConsumerInspectionResult = {
   id: 'case_demo_headphone_nondelivery',
+  isDemo: true,
   createdAt: new Date().toISOString().split('T')[0],
   incidentDate: new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0], // 5 days ago
+  causeOfActionDate: new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0],
   productName: 'Sony WH-1000XM5 Wireless Headphones (৳৮,৫০০)',
   productBrand: 'Sony (Advertised)',
-  sellerName: 'Gadget Vault BD (নমুনা ডেমো মার্চেন্ট)',
+  sellerName: 'Gadget Vault BD',
   platform: 'facebook_page',
   grievanceType: 'product_not_delivered',
   claimedPurchasePriceBdt: 8500,
   fairMarketPriceBdt: 38000,
-  trustScore: 25,
   riskTier: 'high_dispute_risk',
-  confidenceScore: 85.0,
   processingMode: 'local_deterministic',
   statutoryCitation: 'ভোক্তা অধিকার সংরক্ষণ আইন ২০০৯, ধারা ৪৫ ও ধারা ৬০',
   statutoryDisclaimerBn:
-    'আইনি নোটিশ: এটি জাতীয় ভোক্তা-অধিকার সংরক্ষণ অধিদপ্তর (DNCRP) আইন ২০০৯ এর আলোকে প্রামাণ্য নথির ভিত্তিতে প্রস্তুত প্রাথমিক নালিশ খসড়া। কেনাসাথী কোনো সরকারি সংস্থা নয়; শুনানিতে নির্বাহী ম্যাজিস্ট্রেটের সিদ্ধান্ত চূড়ান্ত।',
+    'আইনি নোটিশ: এটি জাতীয় ভোক্তা-অধিকার সংরক্ষণ অধিদপ্তর (DNCRP) আইন ২০০৯ এর আলোকে প্রামাণ্য নথির ভিত্তিতে প্রস্তুত প্রাথমিক নালিশ খসড়া। কেনাসাথী কোনো সরকারি সংস্থা নয়; শুনানিতে মহাপরিচালক বা ক্ষমতাপ্রাপ্ত কর্মকর্তার সিদ্ধান্ত চূড়ান্ত।',
   statutoryDisclaimerEn:
-    'Legal Disclaimer: Prepared in accordance with Sections 45 & 60 of the Consumer Rights Protection Act 2009. Official relief is subject to administrative hearing before an Executive Magistrate.',
+    'Legal Disclaimer: Prepared in accordance with Sections 45, 60 & 76 of the Consumer Rights Protection Act 2009. Official administrative relief is subject to hearing before the Director General or empowered officer of DNCRP.',
   evidenceItems: [
     {
       id: 'ev_hp_01',
@@ -272,6 +273,7 @@ export const FICTIONAL_HEADPHONE_DEMO_CASE: ConsumerInspectionResult = {
       {
         id: 'tl_hp_1',
         dateStr: '৫ দিন পূর্বে',
+        dateStrEn: '5 days ago',
         titleBn: 'অর্ডার প্রদান ও বিকাশ পেমেন্ট সম্পন্ন',
         titleEn: 'Order Placed & bKash Payment Remitted',
         detailBn: '৮,৫০০ টাকা পরিশোধ (TrxID: BK9X81729L); ৩ দিনের হোম ডেলিভারি প্রতিশ্রুতি।',
@@ -281,6 +283,7 @@ export const FICTIONAL_HEADPHONE_DEMO_CASE: ConsumerInspectionResult = {
       {
         id: 'tl_hp_2',
         dateStr: '২ দিন পূর্বে',
+        dateStrEn: '2 days ago',
         titleBn: 'প্রতিশ্রুত ডেলিভারি মেয়াদ অতিক্রান্ত',
         titleEn: 'Promised Delivery Timeframe Expired',
         detailBn: '৩ দিন পার হলেও কুরিয়ার ট্র্যাকিং দেওয়া হয়নি এবং পেজ এডমিন মেসেজের উত্তর দেওয়া বন্ধ করেছে।',
@@ -290,13 +293,16 @@ export const FICTIONAL_HEADPHONE_DEMO_CASE: ConsumerInspectionResult = {
     ],
     claimedRefundBdt: 8500,
     statutoryFineEstimatedBdt: 50000,
-    whistleblowerRewardBdt: 12500, // 25% of 50,000 fine upon realization by magistrate
+    whistleblowerRewardBdt: 0,
+    statutoryConditionsBn:
+      'ধারা ৭৬(৪) অনুযায়ী আদায়কৃত জরিমানার একটি শর্তাধীন অংশ অভিযোগকারীকে প্রদেয় হতে পারে। এটি কোনো নিশ্চিত ক্ষতিপূরণ বা অর্থপ্রাপ্তির নিশ্চয়তা নয়।',
     submissionEmail: 'nccc@dncrp.gov.bd', // Official National Consumer Complaint Centre
     helpline: '16121',
     officialPortalUrl: 'https://ccms.dncrp.com/',
     limitationRemainingDays: 25,
     isTimeBarred: false,
     attachedEvidenceNames: ['Facebook_Ad_Gadget_Vault.png', 'bKash_Payment_Statement_Trx9X81.jpg'],
+    isDemo: true,
   },
   tasks: [
     {
@@ -356,7 +362,6 @@ export const FICTIONAL_HEADPHONE_DEMO_CASE: ConsumerInspectionResult = {
       value: 'Sony WH-1000XM5 Headphones',
       sourceDocId: 'ev_hp_01',
       sourceDocName: 'Facebook_Ad_Gadget_Vault.png',
-      confidence: 85,
       verified: false,
       factStatus: 'pattern_extracted',
     },
@@ -368,7 +373,6 @@ export const FICTIONAL_HEADPHONE_DEMO_CASE: ConsumerInspectionResult = {
       value: '৳৮,৫০০',
       sourceDocId: 'ev_hp_02',
       sourceDocName: 'bKash_Payment_Statement_Trx9X81.jpg',
-      confidence: 90,
       verified: false,
       factStatus: 'pattern_extracted',
     },
@@ -380,7 +384,6 @@ export const FICTIONAL_HEADPHONE_DEMO_CASE: ConsumerInspectionResult = {
       value: 'BK9X81729L',
       sourceDocId: 'ev_hp_02',
       sourceDocName: 'bKash_Payment_Statement_Trx9X81.jpg',
-      confidence: 88,
       verified: false,
       factStatus: 'pattern_extracted',
     },
@@ -392,7 +395,6 @@ export const FICTIONAL_HEADPHONE_DEMO_CASE: ConsumerInspectionResult = {
       value: 'Delivery within 3 days',
       sourceDocId: 'ev_hp_01',
       sourceDocName: 'Facebook_Ad_Gadget_Vault.png',
-      confidence: 80,
       verified: false,
       factStatus: 'pattern_extracted',
     },
@@ -435,12 +437,21 @@ export const KenaSathiStorage = {
     }
   },
 
+  getAllCases(): Record<string, ConsumerInspectionResult> {
+    const cases = this.getCases();
+    const map: Record<string, ConsumerInspectionResult> = {};
+    for (const c of cases) {
+      map[c.id] = c;
+    }
+    return map;
+  },
+
   getCaseById(id: string): ConsumerInspectionResult | null {
     const cases = this.getCases();
     const found = cases.find((c) => c.id === id);
     if (found) return found;
     // Check if it's the fictional demo preset
-    if (id === FICTIONAL_HEADPHONE_DEMO_CASE.id) return FICTIONAL_HEADPHONE_DEMO_CASE;
+    if (id === FICTIONAL_HEADPHONE_DEMO_CASE.id || id === 'case_headphone_nondelivery') return FICTIONAL_HEADPHONE_DEMO_CASE;
     if (SAMPLE_CONSUMER_CASES[id]) return SAMPLE_CONSUMER_CASES[id];
     return null;
   },
@@ -497,9 +508,28 @@ export const KenaSathiStorage = {
   },
 
   loadFictionalDemo(): ConsumerInspectionResult {
-    const demo = { ...FICTIONAL_HEADPHONE_DEMO_CASE, id: `case_demo_${Date.now()}` };
+    const demo: ConsumerInspectionResult = {
+      ...FICTIONAL_HEADPHONE_DEMO_CASE,
+      id: `case_demo_${Date.now()}`,
+      isDemo: true,
+      complaintDossier: {
+        ...FICTIONAL_HEADPHONE_DEMO_CASE.complaintDossier,
+        isDemo: true,
+      },
+    };
     this.saveCase(demo);
     return demo;
+  },
+
+  clearAllCases(): void {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.CUSTOM_CASES);
+      localStorage.removeItem(STORAGE_KEYS.CASES);
+      localStorage.removeItem(STORAGE_KEYS.TASKS);
+      localStorage.removeItem(STORAGE_KEYS.ACTIVITIES);
+    } catch (err) {
+      console.warn('Failed to clear cases:', err);
+    }
   },
 
   getTasks(caseId?: string): CaseTask[] {

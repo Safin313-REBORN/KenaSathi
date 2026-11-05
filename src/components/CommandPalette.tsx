@@ -12,6 +12,7 @@ import {
   BookOpen,
   Briefcase,
   HelpCircle,
+  Sliders,
 } from 'lucide-react';
 
 export type NavigationTabType =
@@ -26,6 +27,7 @@ export type NavigationTabType =
   | 'risk'
   | 'complaint'
   | 'directory'
+  | 'help'
   | 'spatial';
 
 interface CommandPaletteProps {
@@ -34,8 +36,10 @@ interface CommandPaletteProps {
   onSelectConsumerCase: (caseKey: string) => void;
   onToggleLanguage: () => void;
   onToggleHighContrast: () => void;
+  onOpenAccessibility?: (triggerElement?: HTMLElement | null) => void;
   onNavigateTab: (tab: NavigationTabType) => void;
   language: 'bn' | 'en';
+  returnFocusTarget?: HTMLElement | null;
 }
 
 interface CommandItem {
@@ -55,12 +59,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onSelectConsumerCase,
   onToggleLanguage,
   onToggleHighContrast,
+  onOpenAccessibility,
   onNavigateTab,
   language,
+  returnFocusTarget,
 }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const priorFocusRef = useRef<HTMLElement | null>(null);
 
   const handleClose = useCallback(() => {
     setQuery('');
@@ -70,9 +78,22 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 50);
+      priorFocusRef.current = returnFocusTarget ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+      const focusTimer = window.setTimeout(() => inputRef.current?.focus(), 50);
+      return () => {
+        window.clearTimeout(focusTimer);
+        const priorFocus = priorFocusRef.current;
+        if (priorFocus?.isConnected && !priorFocus.closest('[inert]')) {
+          priorFocus.focus();
+        } else {
+          const mobileMenuTrigger = document.getElementById('btn-mobile-menu-toggle');
+          if (mobileMenuTrigger instanceof HTMLElement && mobileMenuTrigger.getClientRects().length > 0) {
+            mobileMenuTrigger.focus();
+          }
+        }
+      };
     }
-  }, [isOpen]);
+  }, [isOpen, returnFocusTarget]);
 
   const commands: CommandItem[] = [
     // Core Navigation Workspaces
@@ -154,6 +175,19 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         handleClose();
       },
     },
+    {
+      id: 'nav-help',
+      category: 'navigation',
+      titleBn: 'সহায়তা ও সাধারণ প্রশ্নোত্তর',
+      titleEn: 'Help and FAQs',
+      subtitleBn: 'কেনাসাথী ব্যবহার, তথ্য সংরক্ষণ ও সরকারি সহায়তা',
+      subtitleEn: 'Using KenaSathi, local storage, and official assistance',
+      icon: <HelpCircle className="w-4 h-4 text-[#176B53]" />,
+      action: () => {
+        onNavigateTab('help');
+        handleClose();
+      },
+    },
 
     // Demonstrations
     {
@@ -201,12 +235,29 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       id: 'action-contrast',
       category: 'action',
       titleBn: 'হাই কনট্রাস্ট এক্সেসিবিলিটি মোড',
-      titleEn: 'High Contrast Mode (WCAG 2.2 AA)',
+      titleEn: 'High Contrast Mode',
       subtitleBn: 'দৃষ্টি প্রতিবন্ধকতা সহায়ক উচ্চ কনট্রাস্ট প্রদর্শন',
-      subtitleEn: 'Toggle black-and-gold high contrast view',
+      subtitleEn: 'Toggle high contrast display theme',
       icon: <Eye className="w-4 h-4 text-[#176B53]" />,
       action: () => {
         onToggleHighContrast();
+        handleClose();
+      },
+    },
+    {
+      id: 'action-accessibility',
+      category: 'action',
+      titleBn: 'অ্যাক্সেসিবিলিটি সেটিংস (Accessibility Settings)',
+      titleEn: 'Accessibility Settings',
+      subtitleBn: 'লেখার আকার, হাই কনট্রাস্ট, অ্যানিমেশন ও লিংক সেটিংস',
+      subtitleEn: 'Text size, high contrast, reduce motion, underline links',
+      icon: <Sliders className="w-4 h-4 text-[#176B53]" />,
+      action: () => {
+        if (onOpenAccessibility) {
+          onOpenAccessibility();
+        } else {
+          onToggleHighContrast();
+        }
         handleClose();
       },
     },
@@ -223,7 +274,21 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   });
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'Tab') {
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'input:not([disabled]), button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       setSelectedIndex((prev) => (prev < filtered.length - 1 ? prev + 1 : 0));
     } else if (e.key === 'ArrowUp') {
@@ -245,18 +310,27 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     <div
       className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4 bg-black/60 backdrop-blur-xs animate-fadeIn"
       onClick={handleClose}
+      role="presentation"
     >
       <div
-        className="bg-white border border-[#D9E0DC] text-[#26352E] rounded-lg max-w-xl w-full shadow-dropdown overflow-hidden flex flex-col"
+        ref={dialogRef}
+        className="bg-surface border border-border text-ink-primary rounded-lg max-w-xl w-full shadow-dropdown overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="command-palette-title"
       >
+        <h2 id="command-palette-title" className="sr-only">
+          {language === 'bn' ? 'দ্রুত অনুসন্ধান' : 'Quick search'}
+        </h2>
         {/* Search Input Bar */}
-        <div className="flex items-center px-4 py-3 border-b border-[#D9E0DC] space-x-3 bg-white">
-          <Search className="w-4 h-4 text-[#64716A]" />
+        <div className="flex items-center px-4 py-3 border-b border-border space-x-3 bg-surface">
+          <Search className="w-4 h-4 text-ink-secondary" />
           <input
             ref={inputRef}
             type="text"
+            aria-label={language === 'bn' ? 'সেবা বা নথিপত্র অনুসন্ধান করুন' : 'Search services or actions'}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -267,11 +341,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 ? 'সেবা বা নথিপত্র অনুসন্ধান করুন... (যেমন: অভিযোগ, যাচাই, নথিপত্র)'
                 : 'Search services or actions... (e.g. Services, Complaint, Documents)'
             }
-            className="w-full bg-transparent text-sm focus:outline-none placeholder-[#8A9790] text-[#172B3A]"
+            className="w-full bg-transparent text-sm focus:outline-none placeholder:text-ink-secondary/60 text-ink-primary"
           />
           <button
             onClick={handleClose}
-            className="p-1 rounded text-[#64716A] hover:bg-[#E8ECE9] text-xs"
+            className="p-1 rounded text-ink-secondary hover:bg-canvas text-xs min-h-[44px] min-w-[44px] flex items-center justify-center"
             aria-label="Close"
           >
             <X className="w-4 h-4" />
@@ -282,22 +356,23 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         <div className="max-h-80 overflow-y-auto p-2 space-y-1">
           {filtered.length > 0 ? (
             filtered.map((item, idx) => (
-              <div
+              <button
                 key={item.id}
+                type="button"
                 onClick={item.action}
                 onMouseEnter={() => setSelectedIndex(idx)}
-                className={`flex items-center justify-between p-2.5 rounded cursor-pointer transition ${
+                className={`w-full text-left flex items-center justify-between p-2.5 rounded cursor-pointer transition min-h-[44px] ${
                   selectedIndex === idx
-                    ? 'bg-[#EAF3F0] text-[#176B53]'
-                    : 'hover:bg-[#F4F6F5] text-[#26352E]'
+                    ? 'bg-emerald-50 text-primary'
+                    : 'hover:bg-canvas text-ink-primary'
                 }`}
               >
                 <div className="flex items-center space-x-3">
                   <div
                     className={`w-7 h-7 rounded flex items-center justify-center border ${
                       selectedIndex === idx
-                        ? 'bg-white border-[#ABCFC3]'
-                        : 'bg-[#F4F6F5] border-[#D9E0DC]'
+                        ? 'bg-surface border-emerald-300'
+                        : 'bg-canvas border-border'
                     }`}
                   >
                     {item.icon}
@@ -306,24 +381,24 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     <p className="text-xs font-bold leading-tight">
                       {language === 'bn' ? item.titleBn : item.titleEn}
                     </p>
-                    <p className="text-[11px] text-[#64716A] leading-tight mt-0.5">
+                    <p className="text-xs text-ink-secondary leading-tight mt-0.5">
                       {language === 'bn' ? item.subtitleBn : item.subtitleEn}
                     </p>
                   </div>
                 </div>
-                <CornerDownLeft className="w-3.5 h-3.5 text-[#8A9790] opacity-50" />
-              </div>
+                <CornerDownLeft className="w-3.5 h-3.5 text-ink-secondary opacity-50" />
+              </button>
             ))
           ) : (
-            <div className="p-8 text-center text-[#64716A] text-xs">
-              <HelpCircle className="w-6 h-6 mx-auto text-[#8A9790] mb-2" />
+            <div className="p-8 text-center text-ink-secondary text-xs">
+              <HelpCircle className="w-6 h-6 mx-auto text-ink-secondary mb-2" />
               <p>{language === 'bn' ? 'কোনো ফলাফল পাওয়া যায়নি' : 'No matching commands found'}</p>
             </div>
           )}
         </div>
 
         {/* Palette Footer */}
-        <div className="p-2.5 bg-[#F4F6F5] border-t border-[#D9E0DC] flex items-center justify-between text-[11px] text-[#64716A] font-mono">
+        <div className="p-2.5 bg-canvas border-t border-border flex items-center justify-between text-xs text-ink-secondary font-mono">
           <div className="flex items-center space-x-3">
             <span>↑↓ নির্বাচন</span>
             <span>↵ খুলুন</span>

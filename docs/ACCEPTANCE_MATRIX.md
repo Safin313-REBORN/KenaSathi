@@ -1,28 +1,40 @@
-# কেনাসাথী (KenaSathi) — FINAL ACCEPTANCE & INTEGRITY MATRIX
-**Document**: `/docs/ACCEPTANCE_MATRIX.md`  
-**Application**: KenaSathi Consumer Rights Assistance & Guidance Portal  
-**Statutory Reference**: Consumer Rights Protection Act, 2009 (ভোক্তা অধিকার সংরক্ষণ আইন, ২০০৯)  
-**Verification Baseline**: 16/16 Test Suites Passing • 0 ESLint Errors • Clean Production Build  
+# KenaSathi acceptance matrix
 
----
+**Review date:** 5 November 2026
+**Scope:** independent source review, automated checks, and live Chromium-based browser review at desktop (default 1383×900), tablet (768×1024), and mobile (390×844).
+**Workspace:** existing project with uncommitted changes from the prior Codex session; this review did not treat its prior reports as evidence.
 
-## Final Acceptance Criteria Checklist
+| Area | Observed result | Status / limitation |
+|---|---|---|
+| Public posture | Bengali-first independent consumer-assistance platform; footer says it is not an official DNCRP or government website. No competition language found in public source/UI scan. | Pass |
+| Empty and demo states | Fresh local origin showed the empty case state. Explicit demo is labeled fictional and not a real complaint. | Pass |
+| Case workflow | Empty case state and populated case summary/complaint draft were reviewed at all three viewport sizes; long case IDs wrap within the privacy notice on mobile. Timeline, evidence, tasks, financial and complaint sections were navigated. | Pass for reviewed workflow; no real filing integration exists. |
+| Intake dialog | Keyboard Escape closes it and returns focus to its trigger; dialog exposes modal semantics and focus handling in source. | Pass for manual check; not a full assistive-technology audit. |
+| Consumer guide | Search and FAQ tabs work on mobile. Section 60 FAQ now says 30 days from cause of action, tells users not to guess dates, and does not imply that hotline contact extends time. | Pass; checked against [official legislation](https://bdlaws.minlaw.gov.bd/act-print-1014.html). |
+| Local storage | UI now discloses browser-local storage and that it is not an encrypted vault; no central account/database is represented. | Pass; browser profile/device security and quota remain user risks. |
+| Accessibility settings | Text-size, contrast, motion, and link-underlining controls reviewed. At 125% on a 390px viewport, document width was 382px with no page-level horizontal overflow. | Pass for observed state; broader WCAG conformance is not certified. |
+| Quick search | Search input is labelled; overlay has modal semantics, keyboard containment, semantic result buttons, Escape close, and focus return. | Pass for manual keyboard flow; not tested with a screen reader. |
+| Scores | Removed numeric confidence percentages from fictional fixtures and local deterministic fallback output; no numeric confidence is presented as calibrated evidence. | Pass for reviewed source. |
+| Documents | Empty state and populated demo register were reviewed at desktop, tablet and mobile. The table scrolls within its own wrapper at tablet; mobile uses stacked records. Accessible names are present on search and type controls. | Pass for these layouts; not assistive-technology certified. |
+| DNCRP contacts and office records | Official DNCRP [contact page](https://dncrp.gov.bd/pages/static-pages/6922dc77933eb65569e10832) and [CCMS portal](https://ccms.dncrp.com/) were checked for hotline 16121 and official complaint route. Section 76(4) was checked in [official law text](https://bdlaws.minlaw.gov.bd/act-print-1014/section-print-39187.html). | Partial; this review did not independently re-verify every local office phone/email/address. Do not treat the directory as fully re-certified. |
+| Other helplines | 999 displayed as emergency service. NLASO’s [official notice](https://nlaso.gov.bd/pages/notices/6922f1c6dbfbab28ce0d5df6) names 16699 as a new toll-free legal-aid helpline. | Pass for number and toll-free status; no service hours are claimed. Historical 16430 wording was removed because current status was not established. |
+| Backend | No backend added. Existing app is local-first, with optional user-consented direct provider calls when a user supplies credentials. | See `BACKEND_DECISION.md`; no deployment or operational requirements were supplied. |
+| Automated tests | `npm test`: 23 passed, 0 failed. | Pass |
+| Lint | `npm run lint`: exit 0, no diagnostics. | Pass |
+| TypeScript + production build | `npm run build`: exit 0. Vite reports large chunks (~507 KB app and ~501 KB PDF); build is successful but bundle optimization remains. | Pass with performance follow-up |
+| Browser run | Routes and screen states listed in `RESPONSIVE_QA.md` were inspected in the live app at desktop 1383×900, tablet 768×1024, and mobile 390×844. Final phone case and desktop home screenshots were visually inspected after the last responsive changes. Local Vite returned HTTP 200 at `http://127.0.0.1:4173/`; browser console errors were not exhaustively re-audited after final changes. | Pass for visual review; see precise scope and limits in responsive QA notes. |
+| Impeccable detector | Final targeted `impeccable detect --json` run returned `[]`. | Pass for this detector; it does not prove overall usability or conformance. |
 
-| # | Benchmark Criterion | Acceptance Requirement | Implementation Evidence | Result |
-| :---: | :--- | :--- | :--- | :---: |
-| **01** | **No Invented Incident Date** | Missing incident date must remain `null`/`undefined`. Never auto-fill today's date or 25 days default. | `NewDisputeModal.tsx` preserves empty date; `limitationService.ts` returns `null` days and honest notice. Tested in Suite 11. | **PASS** |
-| **02** | **Section 60 Calendar Days Math** | Exact 30 calendar days (not working days), calculated timezone-safe in Bangladesh time (UTC+6). | `limitationService.ts` validates calendar bounds, handles boundary Day 30 and Day 31 time-barred. Tested in Suite 11. | **PASS** |
-| **03** | **Evidence-Driven Case Timeline** | Category-adapted timeline; counterfeit disputes cite Section 50; missing facts show `এই তথ্যটি এখনো দেওয়া হয়নি।`. | `aiService.ts` (`buildEvidenceDrivenTimeline`) adapts to grievance category. Tested in Suite 12. | **PASS** |
-| **04** | **Section 76(4) Reward Neutrality** | Zero projected arbitrary cash rewards derived from `maxFine * 0.25`. Educational note on fine realization condition. | `aiService.ts` sets `whistleblowerRewardBdt: 0` and statutory realization condition explanation. Tested in Suite 13. | **PASS** |
-| **05** | **Complaint Generation & Action Labels** | Action buttons accurately describe actions: Copy Draft, Print, Open Email Draft, Open CCMS Portal. Citizen review disclaimer. | `ComplaintBuilder.tsx` updated with accurate button labels and citizen draft disclaimer badge. | **PASS** |
-| **06** | **Gemini 3.8 Flash Integration** | Model `gemini-3.8-flash:generateContent`; `x-goog-api-key` header (never in query params); structured JSON; timeout cleanup in `finally`. | `aiService.ts` (`callLiveGeminiApi`) implements header authentication, structured JSON, 15s timeout cleanup. Tested in Suite 15. | **PASS** |
-| **07** | **PII Minimization (Text & Images)** | Redact Bangladeshi mobile, 10/13/17-digit NID, emails across all prompt fields. Image privacy disclosure. | `sanitizePiiForCloud` scrubs regex patterns; `NewDisputeModal.tsx` provides pre-upload pixel warning and file checkboxes. Tested in Suite 14. | **PASS** |
-| **08** | **PDF Text Stream AI Integration** | Extracted selectable PDF text passed into Gemini prompt. Scanned PDFs clearly marked without OCR claim. | `evidenceProcessor.ts` uses `pdfjs-dist`; `aiService.ts` injects sanitized PDF text into prompt. Tested in Suite 15. | **PASS** |
-| **09** | **Case Switching & Task State** | Changing `currentCase.id` properly updates tasks and sub-tabs without cross-case bleeding or cascading renders. | `CaseWorkspaceView.tsx` synchronizes state during render upon case switch. Tested in Suite 10. | **PASS** |
-| **10** | **Direct Intake & Complaint Routing** | "Check a Purchase" without active case opens intake modal directly; "Draft Complaint" CTA opens Complaint Draft sub-tab. | `App.tsx` routes directly to intake modal or `caseWorkspaceSubTab = 'complaint'`. | **PASS** |
-| **11** | **Landing Demo Fictional Label** | Sample card explicitly labeled `Illustrative fictional example — not a live inspection or verified consumer case.` Neutral badge. | `LandingHero.tsx` renders neutral disclaimer badge and demo notice. | **PASS** |
-| **12** | **Typography & Font Stack** | Loaded typography system: Plus Jakarta Sans for English, Noto Sans Bengali for Bengali, JetBrains Mono for codes. | `index.html` and `src/index.css` updated to load and prioritize Plus Jakarta Sans and Noto Sans Bengali. | **PASS** |
-| **13** | **Stale Component Cleanup** | Remove unimported legacy components (`InspectionDashboard`, `RiskAnalysisView`, `SpatialWorkspace`, `PitchDeckModal`). | Deleted unimported components from repository; verified 0 compile or lint errors. | **PASS** |
-| **14** | **Automated Test Coverage** | Expand test suite to cover Section 60 matrix, timeline adaptation, Section 76(4) neutrality, PII, mocked Gemini requests, and zero event terms. | `tests/kenasathiCore.test.ts` expanded to 16 test suites; 16/16 passing. | **PASS** |
-| **15** | **Build & Performance Hygiene** | `npm test`, `npm run lint`, and `npm run build` must pass cleanly without bundle warnings. | 16/16 tests pass; 0 ESLint errors; production build chunks split (vendor, index, pdf) with zero warnings. | **PASS** |
-| **16** | **Public Service Brand Integrity** | Zero competition references in source files, metadata, or menus; official institutional civic portal identity. | Verified across `src/`, `index.html`, and `README.md`. Tested in Suite 16. | **PASS** |
+## Confirmed fixes in this review
+
+- Corrected Section 60 FAQ copy that had implied the hotline could help after the filing window elapsed.
+- Replaced claims that browser data is “secure” with an accurate IndexedDB/local-storage disclosure.
+- Added accessible names to document search and type controls.
+- Added labelled modal semantics, keyboard containment, semantic result buttons, Escape close, and return focus to quick search.
+- Added modal semantics, Escape behavior, focus containment, and focus restoration to the intake dialog.
+- Reduced mobile masthead spacing after measuring overflow at 125% text size.
+- Removed an unsupported “secure external AI provider” claim; the UI now states that selected materials are sent only after consent and advises users to review provider privacy terms.
+- Removed the unsupported “mandatory evidence” statement, replacing it with practical suggestions to retain relevant records and confirm filing requirements with DNCRP.
+- Removed unverified 16699 service hours and historical 16430 status wording; the app now states only the official toll-free designation.
+- Removed arbitrary numeric confidence percentages from fictional data and deterministic fallback output.
+- Corrected public directory wording and service counts to reflect the current records without claiming the app itself has official status.

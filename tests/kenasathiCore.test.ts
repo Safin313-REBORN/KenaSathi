@@ -33,6 +33,29 @@ import {
   FICTIONAL_HEADPHONE_DEMO_CASE,
   sanitizeCaseForLocalStorage,
 } from '../src/services/storageService.ts';
+import {
+  loadAccessibilityPreferences,
+  saveAccessibilityPreferences,
+  resetAccessibilityPreferences,
+  applyAccessibilityToDOM,
+  normalizeAccessibilityPreferences,
+  STORAGE_KEY_A11Y,
+} from '../src/services/accessibilityPreferences.ts';
+
+// Timezone-safe helper for Bangladesh Standard Time (Asia/Dhaka) calendar dates
+function getDhakaDateString(offsetDays: number = 0): string {
+  const now = new Date();
+  const dtf = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Dhaka',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = dtf.format(now).split('-').map(Number);
+  const targetUtc = Date.UTC(parts[0], parts[1] - 1, parts[2]) - offsetDays * 86400000;
+  const target = new Date(targetUtc);
+  return target.toISOString().split('T')[0];
+}
 
 // ============================================================================
 // TEST SUITE 1: EVIDENCE EXTRACTION & PROVENANCE (P0 Evidence Processing)
@@ -98,8 +121,8 @@ test('AI Classification: CRPA 2009 statutory mapping elements and qualifications
 // TEST SUITE 3: SECTION 60 LIMITATION COUNTDOWN & DATE MATH
 // ============================================================================
 test('Section 60 Limitation Math: Verifies countdown from incident date, expiration, and missing date handling', async () => {
-  const fiveDaysAgo = new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0];
-  const fortyDaysAgo = new Date(Date.now() - 40 * 86400000).toISOString().split('T')[0];
+  const fiveDaysAgo = getDhakaDateString(5);
+  const fortyDaysAgo = getDhakaDateString(40);
 
   // Case A: Recent incident (5 days ago) -> 25 days remaining
   const activeCase = await runKenaSathiAiAnalysis({
@@ -473,27 +496,27 @@ test('Section 60 Limitation Engine: Comprehensive calendar-day matrix & timezone
   assert.equal(missingEmpty.limitationRemainingDays, null);
 
   // 2. Incident occurred today (0 days elapsed) -> exactly 30 calendar days remaining
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getDhakaDateString(0);
   const todayResult = calculateSection60Limitation(todayStr);
   assert.equal(todayResult.limitationRemainingDays, 30);
   assert.equal(todayResult.isTimeBarred, false);
 
   // 3. Incident occurred 5 days ago -> exactly 25 calendar days remaining
-  const fiveDaysAgo = new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0];
+  const fiveDaysAgo = getDhakaDateString(5);
   const fiveDaysResult = calculateSection60Limitation(fiveDaysAgo);
   assert.equal(fiveDaysResult.limitationRemainingDays, 25);
   assert.equal(fiveDaysResult.isTimeBarred, false);
   assert.equal(fiveDaysResult.isExpiringSoon, false);
 
   // 4. Incident occurred 30 days ago -> boundary: 0 days remaining, last day to file
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+  const thirtyDaysAgo = getDhakaDateString(30);
   const thirtyDaysResult = calculateSection60Limitation(thirtyDaysAgo);
   assert.equal(thirtyDaysResult.limitationRemainingDays, 0);
   assert.equal(thirtyDaysResult.isTimeBarred, false, 'Day 30 is still within statutory window');
   assert.equal(thirtyDaysResult.isExpiringSoon, true);
 
   // 5. Incident occurred 31 days ago -> time-barred
-  const thirtyOneDaysAgo = new Date(Date.now() - 31 * 86400000).toISOString().split('T')[0];
+  const thirtyOneDaysAgo = getDhakaDateString(31);
   const thirtyOneDaysResult = calculateSection60Limitation(thirtyOneDaysAgo);
   assert.equal(thirtyOneDaysResult.limitationRemainingDays, 0);
   assert.equal(thirtyOneDaysResult.isTimeBarred, true, 'Day 31 must be time-barred under Section 60');
@@ -509,7 +532,7 @@ test('Section 60 Limitation Engine: Comprehensive calendar-day matrix & timezone
   assert.equal(invalidResult2.limitationRemainingDays, null);
 
   // 7. Future date
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const tomorrow = getDhakaDateString(-1);
   const futureResult = calculateSection60Limitation(tomorrow);
   assert.equal(futureResult.isFutureDate, true);
   assert.equal(futureResult.limitationRemainingDays, null);
@@ -790,12 +813,16 @@ test('Gemini 3.8 Flash Request: Verifies header authentication, payload structur
 // ============================================================================
 // TEST SUITE 16: PUBLIC SERVICE PORTAL INTEGRITY & ZERO COMPETITION REFERENCES
 // ============================================================================
-test('Public Portal Integrity: Verifies zero competition references and institutional civic boundary', async () => {
+test('Public Portal Integrity: Verifies zero competition references across all human-maintained docs and code', async () => {
   const fs = await import('node:fs/promises');
   const path = await import('node:path');
 
-  const srcDir = path.resolve(process.cwd(), 'src');
-  const indexHtmlPath = path.resolve(process.cwd(), 'index.html');
+  const rootDir = process.cwd();
+  const srcDir = path.resolve(rootDir, 'src');
+  const docsDir = path.resolve(rootDir, 'docs');
+  const gsdDir = path.resolve(rootDir, '.gsd');
+  const indexHtmlPath = path.resolve(rootDir, 'index.html');
+  const readmePath = path.resolve(rootDir, 'README.md');
 
   // Check index.html
   const indexHtml = await fs.readFile(indexHtmlPath, 'utf-8');
@@ -815,31 +842,684 @@ test('Public Portal Integrity: Verifies zero competition references and institut
   }
   assert.equal(pitchDeckExists, false, 'PitchDeckModal.tsx must be completely deleted from codebase');
 
-  // Recursive search in src/ for forbidden event terms
-  async function searchFiles(dir: string): Promise<string[]> {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
+  // Recursive search in a directory for text files matching extensions
+  async function searchFiles(dir: string, validExts: string[]): Promise<string[]> {
+    let entries: import('node:fs').Dirent[] = [];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return [];
+    }
     const files: string[] = [];
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        files.push(...(await searchFiles(fullPath)));
-      } else if (entry.isFile() && (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))) {
+        files.push(...(await searchFiles(fullPath, validExts)));
+      } else if (entry.isFile() && validExts.some((ext) => entry.name.endsWith(ext))) {
         files.push(fullPath);
       }
     }
     return files;
   }
 
-  const allSrcFiles = await searchFiles(srcDir);
+  const allSrcFiles = await searchFiles(srcDir, ['.ts', '.tsx', '.css']);
+  const allDocFiles = await searchFiles(docsDir, ['.md']);
+  const allGsdFiles = await searchFiles(gsdDir, ['.md']);
+  const allFilesToCheck = [...allSrcFiles, ...allDocFiles, ...allGsdFiles, readmePath];
+
   const forbiddenRegex = /Ostad Presents|YUNet|AIgnite|Buildathon 2026|PitchDeckModal/i;
 
-  for (const file of allSrcFiles) {
-    const content = await fs.readFile(file, 'utf-8');
-    assert.ok(
-      !forbiddenRegex.test(content),
-      `File ${path.basename(file)} must not contain competition or event references`
-    );
+  for (const file of allFilesToCheck) {
+    try {
+      const content = await fs.readFile(file, 'utf-8');
+      assert.ok(
+        !forbiddenRegex.test(content),
+        `File ${path.relative(rootDir, file)} must not contain competition or event references`
+      );
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    }
   }
 });
 
+// ============================================================================
+// TEST SUITE 17: AUTHENTIC EMPTY STATE & USER JOURNEYS (P0 User Requirement)
+// ============================================================================
+test('Authentic Empty State: New visitor, delete-last-case, and page refresh produce genuine empty state without fake case fallback', () => {
+  // Clear all storage to simulate first-time visitor
+  KenaSathiStorage.clearAllCases();
 
+  // 1. First-time visitor has 0 cases and no automatic fallback
+  const firstVisitorCases = KenaSathiStorage.getAllCases();
+  assert.deepEqual(firstVisitorCases, {}, 'First-time visitor must have completely empty case map');
+  assert.equal(Object.keys(firstVisitorCases).length, 0);
+
+  // Verify getCaseById returns null for undefined/unselected case
+  assert.equal(KenaSathiStorage.getCaseById('non_existent_case'), null);
+
+  // 2. Add real user dispute
+  const userCase = {
+    ...FICTIONAL_HEADPHONE_DEMO_CASE,
+    id: 'case_real_user_01',
+    complainantName: 'মাহমুদুল হক',
+    titleBn: 'দারাজ থেকে ত্রুটিপূর্ণ স্মার্টওয়াচ প্রাপ্তি',
+    titleEn: 'Defective Smartwatch Delivery Dispute',
+    facts: [
+      {
+        id: 'fact_01',
+        field: 'transactionRef',
+        labelBn: 'লেনদেন নম্বর',
+        labelEn: 'Transaction Ref',
+        value: 'TRX998877',
+        sourceDocId: 'doc_user_01',
+        sourceDocName: 'Nagad_Receipt.pdf',
+        factStatus: 'user_reported' as const,
+        verified: false,
+      },
+    ],
+  };
+
+  KenaSathiStorage.saveCase(userCase);
+  const storedAfterSave = KenaSathiStorage.getAllCases();
+  assert.ok(storedAfterSave['case_real_user_01'], 'Real user case must be saved in storage');
+  assert.equal(storedAfterSave['case_real_user_01'].complainantName, 'মাহমুদুল হক');
+
+  // 3. User deletes their last case
+  KenaSathiStorage.deleteCase('case_real_user_01');
+  const storedAfterDelete = KenaSathiStorage.getAllCases();
+  assert.deepEqual(storedAfterDelete, {}, 'Deleting last case must result in strictly empty store');
+  assert.equal(KenaSathiStorage.getCaseById('case_real_user_01'), null);
+
+  // 4. Page refresh after deleting last case
+  // Simulate page reload by reading directly from storage
+  const reloadedCases = KenaSathiStorage.getAllCases();
+  assert.deepEqual(reloadedCases, {}, 'Refreshing page after delete must preserve authentic empty state');
+
+  // 5. Verify explicit demo loading is purely optional and manual
+  const explicitDemo = KenaSathiStorage.loadFictionalDemo();
+  assert.ok(explicitDemo, 'Demo must load when explicitly invoked');
+  assert.ok(explicitDemo.id.startsWith('case_demo_'), 'Demo ID must start with case_demo_ prefix');
+  assert.ok(KenaSathiStorage.getAllCases()[explicitDemo.id], 'Demo exists after explicit load');
+
+  // Clean up
+  KenaSathiStorage.clearAllCases();
+  assert.deepEqual(KenaSathiStorage.getAllCases(), {});
+});
+
+// ============================================================================
+// TEST SUITE 18: NATIONAL HELPLINES & DNCRP DIRECTORY RECORDS
+// ============================================================================
+test('Helplines & Office Directory: Checks current helplines and DNCRP directory metadata', async () => {
+  const fs = await import('node:fs/promises');
+  const path = await import('node:path');
+
+  const guideFile = path.resolve(process.cwd(), 'src', 'components', 'ConsumerGuideDirectory.tsx');
+  const guideContent = await fs.readFile(guideFile, 'utf-8');
+
+  // 1. National Helplines
+  assert.ok(guideContent.includes('16121'), 'Must include 16121 DNCRP helpline');
+  assert.ok(guideContent.includes('999'), 'Must include 999 Emergency helpline');
+  assert.ok(guideContent.includes('16699'), 'Must include 16699 primary NLASO toll-free legal aid helpline');
+  assert.ok(guideContent.includes('Toll-Free'), 'Must identify 16699 as toll-free without claiming unverified service hours');
+  assert.ok(guideContent.includes('https://nlaso.gov.bd'), 'Must link to official NLASO portal');
+  assert.ok(guideContent.includes('https://dncrp.gov.bd'), 'Must link to official DNCRP portal');
+  assert.ok(guideContent.includes('https://ccms.dncrp.com'), 'Must link to official CCMS portal');
+  assert.ok(guideContent.includes('https://police.gov.bd'), 'Must link to official Police portal');
+
+  // 2. Import the live verified DNCRP_OFFICES data structure
+  const { DNCRP_OFFICES } = await import('../src/data/dncrpOffices');
+  assert.ok(Array.isArray(DNCRP_OFFICES), 'DNCRP_OFFICES must be an exported array');
+  assert.equal(DNCRP_OFFICES.length, 11, 'Must contain all 11 verified office records');
+
+  // 3. Strict distinction between Head Office, NCCC, Dhaka Divisional, and Dhaka District
+  const headOffice = DNCRP_OFFICES.find((o) => o.id === 'head-office');
+  const nccc = DNCRP_OFFICES.find((o) => o.id === 'nccc-dhaka');
+  const dhakaDivisional = DNCRP_OFFICES.find((o) => o.id === 'dhaka-divisional');
+  const dhakaDistrict = DNCRP_OFFICES.find((o) => o.id === 'dhaka-district');
+
+  assert.ok(headOffice, 'Head Office record must exist');
+  assert.ok(nccc, 'NCCC record must exist');
+  assert.ok(dhakaDivisional, 'Dhaka Divisional Office must exist as separate verified record');
+  assert.ok(dhakaDistrict, 'Dhaka District Office must exist as separate verified record');
+
+  // Confirm distinct identities, portals, and emails
+  assert.notEqual(headOffice.id, dhakaDivisional.id);
+  assert.notEqual(nccc.id, dhakaDivisional.id);
+  assert.equal(headOffice.sourceUrl, 'https://dncrp.gov.bd');
+  assert.equal(nccc.sourceUrl, 'https://ccms.dncrp.com');
+  assert.equal(dhakaDivisional.sourceUrl, 'https://dncrp.dhakadiv.gov.bd');
+  assert.equal(dhakaDistrict.sourceUrl, 'https://dhaka.gov.bd');
+
+  assert.equal(dhakaDivisional.email, 'dd-dhaka@dncrp.gov.bd');
+  assert.equal(dhakaDistrict.email, 'ad-dhaka@dncrp.gov.bd');
+
+  // 4. Independent Mymensingh Divisional Office verification
+  const mymensingh = DNCRP_OFFICES.find((o) => o.id === 'mymensingh');
+  assert.ok(mymensingh, 'Mymensingh Divisional Office must exist');
+  assert.ok(mymensingh.nameBn.includes('ময়মনসিংহ') || mymensingh.nameBn.includes('ময়মনসিংহ'));
+  assert.equal(mymensingh.sourceUrl, 'https://dncrp.mymensinghdiv.gov.bd');
+  assert.equal(mymensingh.email, 'dd-mymensingh@dncrp.gov.bd');
+  assert.ok(mymensingh.phone.includes('০২৯৯৭৭১০৭০৩'));
+  assert.ok(mymensingh.verificationStatusBn.includes('নিশ্চিতকৃত'));
+
+  // 5. Verification of remaining regional divisional offices
+  const regionalExpected = [
+    { id: 'chattogram', url: 'https://dncrp.chittagongdiv.gov.bd/pages/officers', email: 'dd-chattogram@dncrp.gov.bd' },
+    { id: 'rajshahi', url: 'https://dncrp.rajshahidiv.gov.bd', email: 'dd-rajshahi@dncrp.gov.bd' },
+    { id: 'khulna', url: 'https://dncrp.khulnadiv.gov.bd/pages/static-pages/6981241ca31054345f1e3ed4', email: 'dd-khulna@dncrp.gov.bd' },
+    { id: 'barishal', url: 'https://dncrp.barisaldiv.gov.bd', email: 'dd-barishal@dncrp.gov.bd' },
+    { id: 'sylhet', url: 'https://dncrp.sylhetdiv.gov.bd', email: 'dd-sylhet@dncrp.gov.bd' },
+    { id: 'rangpur', url: 'https://dncrp.rangpurdiv.gov.bd', email: 'dd-rangpur@dncrp.gov.bd' },
+  ];
+
+  for (const reg of regionalExpected) {
+    const office = DNCRP_OFFICES.find((o) => o.id === reg.id);
+    assert.ok(office, `Regional office ${reg.id} must exist`);
+    assert.equal(office.sourceUrl, reg.url, `Office ${reg.id} must have verified portal URL: ${reg.url}`);
+    assert.equal(office.email, reg.email, `Office ${reg.id} must have verified email: ${reg.email}`);
+    assert.ok(office.verificationStatusBn.includes('নিশ্চিতকৃত'));
+    assert.ok(office.lastVerifiedBn, `Office ${reg.id} must have last-verified date`);
+  }
+
+  // 6. Guarantee that no regional office uses a lazy root https://dncrp.gov.bd URL
+  const regionalOffices = DNCRP_OFFICES.filter((o) => o.id !== 'head-office');
+  for (const ro of regionalOffices) {
+    assert.notEqual(
+      ro.sourceUrl,
+      'https://dncrp.gov.bd',
+      `Regional office ${ro.id} must NOT use blanket head office URL https://dncrp.gov.bd`
+    );
+  }
+
+  // 7. Verify rendered file contains unverified fallback notice support
+  assert.ok(
+    guideContent.includes('তথ্যটি বর্তমানে নিশ্চিত করা যায়নি।'),
+    'Must support fallback notice for unconfirmed details'
+  );
+
+  // 8. Assert false official-portal branding is removed
+  assert.ok(
+    !guideContent.includes('অফিসিয়াল তথ্য বাতায়ন'),
+    'Must not claim to be the official government portal'
+  );
+  assert.ok(
+    guideContent.includes('সরকারি দপ্তর ও ভোক্তা অধিকার নির্দেশিকা'),
+    'Must use accurate directory heading'
+  );
+});
+
+// ============================================================================
+// TEST SUITE 19: CONSUMER GUIDE SEARCH & PRACTICAL UNBOXING GUIDANCE
+// ============================================================================
+test('Guide Search & Advice Integrity: Verifies full-text search capability and practical parcel unboxing guidance', async () => {
+  const fs = await import('node:fs/promises');
+  const path = await import('node:path');
+
+  const guideFile = path.resolve(process.cwd(), 'src', 'components', 'ConsumerGuideDirectory.tsx');
+  const guideContent = await fs.readFile(guideFile, 'utf-8');
+
+  // Verify interactive search input is implemented
+  assert.ok(guideContent.includes('searchQuery'), 'Must include searchQuery state for directory');
+  assert.ok(guideContent.includes('filteredOffices'), 'Must implement filteredOffices search logic');
+  assert.ok(guideContent.includes('filteredStatutes'), 'Must implement filteredStatutes search logic');
+  assert.ok(guideContent.includes('filteredFaqs'), 'Must implement filteredFaqs search logic');
+
+  // Verify real search filtering behavior across verified records
+  const { DNCRP_OFFICES } = await import('../src/data/dncrpOffices');
+  const norm = (s: string) => s.toLowerCase().normalize('NFC').replace(/\u09AF\u09BC/g, '\u09DF').trim();
+  const searchFilter = (query: string) => {
+    const q = norm(query);
+    return DNCRP_OFFICES.filter((o) =>
+      norm(o.nameBn).includes(q) ||
+      norm(o.nameEn).includes(q) ||
+      norm(o.divisionBn).includes(q) ||
+      norm(o.divisionEn).includes(q) ||
+      norm(o.addressBn).includes(q) ||
+      norm(o.addressEn).includes(q) ||
+      norm(o.phone).includes(q) ||
+      norm(o.email).includes(q)
+    );
+  };
+
+  const mymensinghMatches = searchFilter('ময়মনসিংহ');
+  assert.equal(mymensinghMatches.length, 1);
+  assert.equal(mymensinghMatches[0].id, 'mymensingh');
+
+  const sylhetMatches = searchFilter('Sylhet');
+  assert.equal(sylhetMatches.length, 1);
+  assert.equal(sylhetMatches[0].id, 'sylhet');
+
+  const ncccMatches = searchFilter('NCCC');
+  assert.equal(ncccMatches.length, 1);
+  assert.equal(ncccMatches[0].id, 'nccc-dhaka');
+
+  const dhakaMatches = searchFilter('Dhaka');
+  assert.ok(dhakaMatches.length >= 3, 'Must match Head Office, NCCC, and Dhaka Divisional/District');
+
+  const emptyMatches = searchFilter('xyz-nonexistent-query-999');
+  assert.equal(emptyMatches.length, 0);
+
+  // Verify practical unboxing advice replaces false statutory right
+  assert.ok(
+    guideContent.includes('ব্যবহারিক প্রমাণ সংরক্ষণ পরামর্শ'),
+    'Must frame COD unboxing as practical evidence preservation guidance'
+  );
+  assert.ok(
+    !guideContent.includes('ভিডিও ধারণ করা ক্রেতার আইনি অধিকার'),
+    'Must NOT claim unboxing video is an invented statutory right'
+  );
+});
+
+// ============================================================================
+// TEST SUITE 20: COMPLAINT BUILDER STATE ISOLATION (Zero Contamination)
+// ============================================================================
+test('ComplaintBuilder State Isolation: Editing Case A does not contaminate Case B', () => {
+  KenaSathiStorage.clearAllCases();
+
+  const caseA = {
+    ...FICTIONAL_HEADPHONE_DEMO_CASE,
+    id: 'case_dispute_alpha',
+    complaintDossier: {
+      ...FICTIONAL_HEADPHONE_DEMO_CASE.complaintDossier,
+      complaintId: 'DNCRP-ALPHA-01',
+      complainantName: 'আব্দুল করিম',
+      complainantAddress: 'ধানমন্ডি, ঢাকা',
+      complainantNidPhone: '01711000001',
+      sellerShopName: 'গেজেট মার্ট',
+      sellerLocation: 'মিরপুর, ঢাকা',
+      factualSummaryBn: 'ফোনের পরিবর্তে সাবান পাঠানো হয়েছে।',
+      factualSummaryEn: 'Soap delivered instead of phone.',
+    },
+  };
+
+  const caseB = {
+    ...FICTIONAL_HEADPHONE_DEMO_CASE,
+    id: 'case_dispute_beta',
+    complaintDossier: {
+      ...FICTIONAL_HEADPHONE_DEMO_CASE.complaintDossier,
+      complaintId: 'DNCRP-BETA-02',
+      complainantName: 'ফাতিমা বেগম',
+      complainantAddress: 'জিইসি মোড়, চট্টগ্রাম',
+      complainantNidPhone: '01811000002',
+      sellerShopName: 'ফ্যাশন প্যালেস',
+      sellerLocation: 'আগ্রাবাদ, চট্টগ্রাম',
+      factualSummaryBn: 'ছেঁড়া কাপড় পাঠিয়ে বিক্রেতা ফেসবুক পেজে ব্লক করে দিয়েছে।',
+      factualSummaryEn: 'Torn dress delivered and seller blocked consumer.',
+    },
+  };
+
+  // Save both cases
+  KenaSathiStorage.saveCase(caseA);
+  KenaSathiStorage.saveCase(caseB);
+
+  // Retrieve both and verify distinctness
+  const loadedA = KenaSathiStorage.getCaseById('case_dispute_alpha');
+  const loadedB = KenaSathiStorage.getCaseById('case_dispute_beta');
+
+  assert.ok(loadedA && loadedB);
+  assert.equal(loadedA.complaintDossier.complainantName, 'আব্দুল করিম');
+  assert.equal(loadedB.complaintDossier.complainantName, 'ফাতিমা বেগম');
+  assert.equal(loadedA.complaintDossier.sellerShopName, 'গেজেট মার্ট');
+  assert.equal(loadedB.complaintDossier.sellerShopName, 'ফ্যাশন প্যালেস');
+
+  // Edit Case A
+  const updatedDossierA = {
+    ...loadedA.complaintDossier,
+    complainantName: 'আব্দুল করিম চৌধুরী (সংশোধিত)',
+    factualSummaryBn: 'সংশোধিত বিবরণ: নকল হেডফোন সরবরাহ ও প্রতারণা।',
+  };
+  KenaSathiStorage.saveCase({
+    ...loadedA,
+    complaintDossier: updatedDossierA,
+  });
+
+  // Re-fetch both cases
+  const refetchedA = KenaSathiStorage.getCaseById('case_dispute_alpha');
+  const refetchedB = KenaSathiStorage.getCaseById('case_dispute_beta');
+
+  assert.ok(refetchedA && refetchedB);
+  assert.equal(refetchedA.complaintDossier.complainantName, 'আব্দুল করিম চৌধুরী (সংশোধিত)');
+  assert.equal(refetchedA.complaintDossier.factualSummaryBn, 'সংশোধিত বিবরণ: নকল হেডফোন সরবরাহ ও প্রতারণা।');
+
+  // Assert Case B remains completely untouched
+  assert.equal(
+    refetchedB.complaintDossier.complainantName,
+    'ফাতিমা বেগম',
+    'Case B complainantName must not be modified by Case A edits'
+  );
+  assert.equal(
+    refetchedB.complaintDossier.sellerShopName,
+    'ফ্যাশন প্যালেস',
+    'Case B sellerShopName must not be contaminated'
+  );
+  assert.equal(
+    refetchedB.complaintDossier.factualSummaryBn,
+    'ছেঁড়া কাপড় পাঠিয়ে বিক্রেতা ফেসবুক পেজে ব্লক করে দিয়েছে।',
+    'Case B factualSummary must remain completely isolated'
+  );
+
+  // Clean up
+  KenaSathiStorage.clearAllCases();
+});
+
+// ============================================================================
+// TEST SUITE 21: ACCESSIBILITY PREFERENCES ARCHITECTURE & CIVIC INTEGRITY
+// ============================================================================
+test('Accessibility Preferences: Default loading, persistent storage, safe fallback, and non-destructive reset', () => {
+  // 1. Initial State: Clean storage returns defaults
+  localStorage.removeItem(STORAGE_KEY_A11Y);
+  const initialPrefs = loadAccessibilityPreferences();
+  assert.equal(initialPrefs.textSize, 'normal', 'Default text size must be normal');
+  assert.equal(initialPrefs.highContrast, false, 'Default high contrast must be false');
+  assert.equal(initialPrefs.underlineLinks, false, 'Default underline links must be false');
+  assert.ok(typeof initialPrefs.reduceMotion === 'boolean', 'reduceMotion must be a boolean');
+
+  // 2. Storage Persistence: Save custom preferences and reload
+  saveAccessibilityPreferences({
+    textSize: 'largest',
+    highContrast: true,
+    reduceMotion: true,
+    underlineLinks: true,
+  });
+
+  const storedRaw = localStorage.getItem(STORAGE_KEY_A11Y);
+  assert.ok(storedRaw, 'Storage key must be present in localStorage');
+  const parsed = JSON.parse(storedRaw as string);
+  assert.equal(parsed.textSize, 'largest');
+  assert.equal(parsed.highContrast, true);
+  assert.equal(parsed.reduceMotion, true);
+  assert.equal(parsed.underlineLinks, true);
+
+  const reloaded = loadAccessibilityPreferences();
+  assert.equal(reloaded.textSize, 'largest');
+  assert.equal(reloaded.highContrast, true);
+  assert.equal(reloaded.reduceMotion, true);
+  assert.equal(reloaded.underlineLinks, true);
+
+  // 3. Resilient Fallback on Corrupt Storage & Malformed Values
+  localStorage.setItem(STORAGE_KEY_A11Y, '{"corrupt":true, "textSize":"invalid_size"}');
+  const fallback = loadAccessibilityPreferences();
+  assert.equal(fallback.textSize, 'normal', 'Must fall back safely on invalid textSize');
+  assert.equal(fallback.highContrast, false, 'Must fall back safely to boolean false');
+
+  // Verify that "false" string or numbers are NOT coerced into truthy booleans
+  localStorage.setItem(STORAGE_KEY_A11Y, '{"highContrast":"false","reduceMotion":123,"underlineLinks":"true"}');
+  const stringCoercionFallback = loadAccessibilityPreferences();
+  assert.equal(stringCoercionFallback.highContrast, false, '"false" string must not evaluate to boolean true');
+  assert.equal(stringCoercionFallback.underlineLinks, false, '"true" string must not evaluate to boolean true without being a real boolean');
+
+  // Direct Schema Normalizer Unit Tests
+  const norm1 = normalizeAccessibilityPreferences({ highContrast: 'false', textSize: 'giant' });
+  assert.equal(norm1.highContrast, false, 'String "false" must normalize to boolean false');
+  assert.equal(norm1.textSize, 'normal', 'Invalid text size must normalize to "normal"');
+
+  const normNull = normalizeAccessibilityPreferences(null);
+  assert.equal(normNull.textSize, 'normal', 'null must return fallback preferences');
+  assert.equal(normNull.highContrast, false);
+
+  const normNumbers = normalizeAccessibilityPreferences({ highContrast: 1, reduceMotion: 0 });
+  assert.equal(normNumbers.highContrast, false, 'Numbers must not be treated as booleans');
+
+  const normMissing = normalizeAccessibilityPreferences({ textSize: 'large' });
+  assert.equal(normMissing.textSize, 'large');
+  assert.equal(normMissing.highContrast, false);
+  assert.equal(normMissing.underlineLinks, false);
+
+  localStorage.setItem(STORAGE_KEY_A11Y, 'not-valid-json{{{');
+  const parseFallback = loadAccessibilityPreferences();
+  assert.equal(parseFallback.textSize, 'normal', 'Must fall back on malformed JSON without crashing');
+
+  // 4. Non-Destructive Reset: Resetting preferences MUST NEVER touch consumer cases or drafts
+  KenaSathiStorage.clearAllCases();
+  const testCase = {
+    ...FICTIONAL_HEADPHONE_DEMO_CASE,
+    id: 'case_user_vault_preserve',
+    disputeTitleBn: 'ব্যবহারকারীর সংরক্ষিত অভিযোগ যা রিসেটে ডিলিট হবে না',
+  };
+  KenaSathiStorage.saveCase(testCase);
+  assert.equal(KenaSathiStorage.getCases().length, 1, 'Pre-condition: User case must exist');
+
+  // Apply modified accessibility preferences
+  saveAccessibilityPreferences({
+    textSize: 'large',
+    highContrast: true,
+    reduceMotion: false,
+    underlineLinks: true,
+  });
+
+  // Perform reset
+  const resetResult = resetAccessibilityPreferences();
+  assert.equal(resetResult.textSize, 'normal', 'Reset text size must be normal');
+  assert.equal(resetResult.highContrast, false, 'Reset high contrast must be false');
+  assert.equal(resetResult.underlineLinks, false, 'Reset underline links must be false');
+
+  // Verify stored accessibility preferences are back to defaults
+  const afterReset = loadAccessibilityPreferences();
+  assert.equal(afterReset.textSize, 'normal');
+  assert.equal(afterReset.highContrast, false);
+
+  // CRITICAL INTEGRITY CHECK: User cases MUST remain intact
+  const remainingCases = KenaSathiStorage.getCases();
+  assert.equal(
+    remainingCases.length,
+    1,
+    'Accessibility reset must NEVER delete user consumer cases or evidence'
+  );
+  assert.equal(
+    remainingCases[0].id,
+    'case_user_vault_preserve',
+    'User case ID must be preserved intact'
+  );
+  assert.equal(
+    remainingCases[0].disputeTitleBn,
+    'ব্যবহারকারীর সংরক্ষিত অভিযোগ যা রিসেটে ডিলিট হবে না',
+    'User case title must be preserved intact'
+  );
+
+  // Clean up
+  KenaSathiStorage.clearAllCases();
+  localStorage.removeItem(STORAGE_KEY_A11Y);
+});
+
+test('Accessibility DOM Synchronization: Correctly sets HTML data attributes and high-contrast class', () => {
+  // Mock document and documentElement
+  const attributes: Record<string, string> = {};
+  const classList = new Set<string>();
+
+  const mockDoc = {
+    documentElement: {
+      setAttribute: (k: string, v: string) => {
+        attributes[k] = v;
+      },
+      classList: {
+        add: (c: string) => classList.add(c),
+        remove: (c: string) => classList.delete(c),
+        contains: (c: string) => classList.has(c),
+      },
+    },
+  };
+
+  (globalThis as unknown as { document: unknown }).document = mockDoc;
+
+  try {
+    // Apply preferences
+    applyAccessibilityToDOM({
+      textSize: 'largest',
+      highContrast: true,
+      reduceMotion: true,
+      underlineLinks: true,
+    });
+
+    assert.equal(attributes['data-text-size'], 'largest');
+    assert.equal(attributes['data-high-contrast'], 'true');
+    assert.equal(attributes['data-reduce-motion'], 'true');
+    assert.equal(attributes['data-underline-links'], 'true');
+    assert.ok(classList.has('high-contrast'), 'Must add high-contrast class when enabled');
+
+    // Test switching off high contrast and normal text size
+    applyAccessibilityToDOM({
+      textSize: 'normal',
+      highContrast: false,
+      reduceMotion: false,
+      underlineLinks: false,
+    });
+
+    assert.equal(attributes['data-text-size'], 'normal');
+    assert.equal(attributes['data-high-contrast'], 'false');
+    assert.equal(attributes['data-reduce-motion'], 'false');
+    assert.equal(attributes['data-underline-links'], 'false');
+    assert.ok(!classList.has('high-contrast'), 'Must remove high-contrast class when disabled');
+  } finally {
+    // Cleanup global document mock
+    delete (globalThis as unknown as { document?: unknown }).document;
+  }
+});
+
+// ============================================================================
+// TEST SUITE 23: ACCESSIBILITY REDUCED MOTION OS SYNC & CITIZEN OVERRIDE (9 SCENARIOS)
+// ============================================================================
+test('Accessibility Reduce Motion: OS Synchronization & Citizen Override Precedence (9 Scenarios)', () => {
+  let mockSystemPrefersReduced = false;
+
+  // Setup mock window with dynamic matchMedia
+  const originalWindow = (globalThis as unknown as { window?: unknown }).window;
+  (globalThis as unknown as { window: unknown }).window = {
+    localStorage: (globalThis as unknown as { localStorage: Storage }).localStorage,
+    matchMedia: (query: string) => ({
+      matches: query.includes('reduce') ? mockSystemPrefersReduced : false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  };
+
+  try {
+    // SCENARIO 1: OS reduced motion ON, no saved user override
+    localStorage.removeItem(STORAGE_KEY_A11Y);
+    mockSystemPrefersReduced = true;
+    const s1 = loadAccessibilityPreferences();
+    assert.equal(s1.reduceMotionOverride, null, 'Scenario 1: override must be null when no explicit choice stored');
+    assert.equal(s1.reduceMotion, true, 'Scenario 1: effective reduceMotion must follow OS (true)');
+
+    // SCENARIO 2: OS reduced motion OFF, no saved user override
+    localStorage.removeItem(STORAGE_KEY_A11Y);
+    mockSystemPrefersReduced = false;
+    const s2 = loadAccessibilityPreferences();
+    assert.equal(s2.reduceMotionOverride, null, 'Scenario 2: override must be null');
+    assert.equal(s2.reduceMotion, false, 'Scenario 2: effective reduceMotion must follow OS (false)');
+
+    // SCENARIO 3: OS changes from OFF to ON when citizen has no explicit override
+    // Given override is null, updating with system preference change computes effective reduceMotion: true
+    mockSystemPrefersReduced = true;
+    const s3 = normalizeAccessibilityPreferences({ reduceMotionOverride: null });
+    assert.equal(s3.reduceMotionOverride, null, 'Scenario 3: override remains null');
+    assert.equal(s3.reduceMotion, true, 'Scenario 3: effective motion updates to true with OS change');
+
+    // SCENARIO 4: Explicit user ON survives OS change to false
+    mockSystemPrefersReduced = true;
+    saveAccessibilityPreferences({
+      textSize: 'normal',
+      highContrast: false,
+      reduceMotion: true,
+      reduceMotionOverride: true,
+      underlineLinks: false,
+    });
+    // System switches OFF
+    mockSystemPrefersReduced = false;
+    const s4 = loadAccessibilityPreferences();
+    assert.equal(s4.reduceMotionOverride, true, 'Scenario 4: explicit user ON override preserved');
+    assert.equal(s4.reduceMotion, true, 'Scenario 4: explicit user ON survives OS turning off');
+
+    // SCENARIO 5: Explicit user OFF survives OS change to true
+    saveAccessibilityPreferences({
+      textSize: 'normal',
+      highContrast: false,
+      reduceMotion: false,
+      reduceMotionOverride: false,
+      underlineLinks: false,
+    });
+    // System switches ON
+    mockSystemPrefersReduced = true;
+    const s5 = loadAccessibilityPreferences();
+    assert.equal(s5.reduceMotionOverride, false, 'Scenario 5: explicit user OFF override preserved');
+    assert.equal(s5.reduceMotion, false, 'Scenario 5: explicit user OFF survives OS turning on');
+
+    // SCENARIO 6: Reset returns to system preference
+    // Pre-condition: user has explicit override: false while OS is true
+    assert.equal(loadAccessibilityPreferences().reduceMotion, false);
+    mockSystemPrefersReduced = true;
+    const s6 = resetAccessibilityPreferences();
+    assert.equal(s6.reduceMotionOverride, null, 'Scenario 6: reset must clear override to null');
+    assert.equal(s6.reduceMotion, true, 'Scenario 6: reset must return to current OS preference (true)');
+
+    const reloadedAfterReset = loadAccessibilityPreferences();
+    assert.equal(reloadedAfterReset.reduceMotionOverride, null, 'Scenario 6: stored override remains null after reset');
+    assert.equal(reloadedAfterReset.reduceMotion, true, 'Scenario 6: reloaded state matches OS preference');
+
+    // SCENARIO 7: Reload preserves explicit user choice
+    saveAccessibilityPreferences({
+      textSize: 'large',
+      highContrast: true,
+      reduceMotion: false,
+      reduceMotionOverride: false,
+      underlineLinks: true,
+    });
+    const s7 = loadAccessibilityPreferences();
+    assert.equal(s7.reduceMotionOverride, false, 'Scenario 7: reload must preserve explicit override');
+    assert.equal(s7.reduceMotion, false, 'Scenario 7: reload must preserve effective value');
+    assert.equal(s7.textSize, 'large');
+    assert.equal(s7.highContrast, true);
+
+    // SCENARIO 8: Cross-tab updates preserve correct precedence
+    // Remote tab sets explicit override: true
+    const crossTabPayload = JSON.stringify({
+      textSize: 'normal',
+      highContrast: false,
+      reduceMotion: true,
+      reduceMotionOverride: true,
+      underlineLinks: false,
+    });
+    const s8a = normalizeAccessibilityPreferences(JSON.parse(crossTabPayload));
+    assert.equal(s8a.reduceMotionOverride, true, 'Scenario 8a: cross-tab explicit override recognized');
+    assert.equal(s8a.reduceMotion, true);
+
+    // Remote tab resets to system preference (override: null)
+    mockSystemPrefersReduced = false;
+    const crossTabReset = JSON.stringify({
+      textSize: 'normal',
+      highContrast: false,
+      reduceMotion: false,
+      reduceMotionOverride: null,
+      underlineLinks: false,
+    });
+    const s8b = normalizeAccessibilityPreferences(JSON.parse(crossTabReset));
+    assert.equal(s8b.reduceMotionOverride, null, 'Scenario 8b: cross-tab reset to null recognized');
+    assert.equal(s8b.reduceMotion, false, 'Scenario 8b: evaluates to current OS preference');
+
+    // SCENARIO 9: Malformed override falls back safely
+    mockSystemPrefersReduced = true;
+    const s9String = normalizeAccessibilityPreferences({ reduceMotionOverride: 'invalid_string' });
+    assert.equal(s9String.reduceMotionOverride, null, 'Scenario 9: string override safely normalizes to null');
+    assert.equal(s9String.reduceMotion, true, 'Scenario 9: falls back to system preference (true)');
+
+    const s9Number = normalizeAccessibilityPreferences({ reduceMotionOverride: 12345 });
+    assert.equal(s9Number.reduceMotionOverride, null, 'Scenario 9: number override safely normalizes to null');
+
+    const s9Obj = normalizeAccessibilityPreferences({ reduceMotionOverride: { complex: true } });
+    assert.equal(s9Obj.reduceMotionOverride, null, 'Scenario 9: object override safely normalizes to null');
+
+    // Clean up
+    localStorage.removeItem(STORAGE_KEY_A11Y);
+  } finally {
+    // Restore window
+    if (originalWindow !== undefined) {
+      (globalThis as unknown as { window: unknown }).window = originalWindow;
+    } else {
+      delete (globalThis as unknown as { window?: unknown }).window;
+    }
+  }
+});

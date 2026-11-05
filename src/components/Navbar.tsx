@@ -1,32 +1,30 @@
 import React, { useState } from 'react';
 import {
   Scale,
-  Plus,
-  BookOpen,
+  FileText,
+  Building2,
+  FolderOpen,
   PhoneCall,
-  Search,
   Globe,
-  Eye,
+  Plus,
   Menu,
   X,
-  FolderOpen,
-  ShieldAlert,
-  Home,
-  Briefcase,
+  Search,
   HelpCircle,
+  Sliders,
 } from 'lucide-react';
-import { NavigationTabType } from './CommandPalette';
 
 interface NavbarProps {
-  activeTab: NavigationTabType;
-  onNavigateTab: (tab: NavigationTabType) => void;
+  activeTab: string;
+  onNavigateTab: (tab: string) => void;
   language: 'bn' | 'en';
   onToggleLanguage: () => void;
-  onOpenTour: () => void;
-  onOpenCommandPalette: () => void;
   onOpenNewDispute?: () => void;
-  isHighContrast: boolean;
-  onToggleHighContrast: () => void;
+  onOpenCommandPalette: (triggerElement?: HTMLElement | null) => void;
+  onOpenTour: () => void;
+  onOpenAccessibility: (triggerElement?: HTMLElement | null) => void;
+  isHighContrast?: boolean;
+  accessibilityTriggerRef?: React.RefObject<HTMLButtonElement>;
   onNarrateOverview?: () => void;
 }
 
@@ -35,196 +33,163 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigateTab,
   language,
   onToggleLanguage,
-  onOpenTour,
-  onOpenCommandPalette,
   onOpenNewDispute,
-  isHighContrast,
-  onToggleHighContrast,
+  onOpenCommandPalette,
+  onOpenTour,
+  onOpenAccessibility,
+  isHighContrast = false,
+  accessibilityTriggerRef,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuToggleRef = React.useRef<HTMLButtonElement>(null);
 
+  // Essential public service navigation links
   const navItems = [
     {
-      id: 'landing' as NavigationTabType,
-      labelBn: 'হোম',
-      labelEn: 'Home',
-      icon: <Home className="w-4 h-4" />,
-    },
-    {
-      id: 'services' as NavigationTabType,
+      id: 'services',
       labelBn: 'সেবাসমূহ',
       labelEn: 'Services',
-      icon: <Briefcase className="w-4 h-4" />,
+      icon: <Building2 className="w-4 h-4" />,
     },
     {
-      id: 'documents' as NavigationTabType,
-      labelBn: 'আমার নথিপত্র',
-      labelEn: 'My Documents',
+      id: 'cases',
+      labelBn: 'আমার বিরোধসমূহ',
+      labelEn: 'My Cases',
+      icon: <FileText className="w-4 h-4" />,
+    },
+    {
+      id: 'documents',
+      labelBn: 'নথিপত্র রেজিস্টার',
+      labelEn: 'Documents',
       icon: <FolderOpen className="w-4 h-4" />,
     },
     {
-      id: 'guide' as NavigationTabType,
-      labelBn: 'ভোক্তা অধিকার',
-      labelEn: 'Consumer Rights',
-      icon: <BookOpen className="w-4 h-4" />,
-    },
-    {
-      id: 'cases' as NavigationTabType,
-      labelBn: 'আমার বিরোধ',
-      labelEn: 'My Cases',
-      icon: <ShieldAlert className="w-4 h-4" />,
+      id: 'guide',
+      labelBn: 'ভোক্তা গাইড',
+      labelEn: 'Consumer Guide',
+      icon: <Scale className="w-4 h-4" />,
     },
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-[#D9E0DC] shadow-sm transition-colors">
-      {/* 1. Slim Top Utility Bar */}
-      <div className="bg-[#172B3A] text-[#D9E0DC] text-xs py-1.5 px-4 border-b border-[#11212D]">
+    <header className="sticky top-0 z-40 bg-white border-b border-[#DDE4DF] transition-colors">
+      {/* Tier 1: Compact Institutional Utility Strip */}
+      <div className="bg-[#172B3A] text-[#DDE4DF] text-xs py-1.5 px-4 sm:px-6 lg:px-8 border-b border-[#12212D]">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-[11px]">
-            <span className="font-semibold text-white">
+          <div className="flex items-center space-x-2 text-xs truncate mr-2">
+            <span className="font-semibold text-white whitespace-nowrap">
               {language === 'bn' ? 'বাংলাদেশে ভোক্তা সহায়তা' : 'Consumer Assistance in Bangladesh'}
             </span>
-            <span className="text-[#8A9790] hidden sm:inline">•</span>
-            <span className="text-[#D9E0DC] hidden sm:inline">
+            <span className="text-[#63756C] hidden sm:inline">•</span>
+            <span className="text-[#DDE4DF] hidden md:inline truncate">
               {language === 'bn'
                 ? 'ভোক্তা অধিকার সংরক্ষণ আইন ২০০৯ সহায়ক সেবা'
                 : 'CRPA 2009 Statutory Guidance Service'}
             </span>
           </div>
 
-          <div className="flex items-center space-x-3 text-[11px]">
+          <div className="flex items-center space-x-2 sm:space-x-3 text-xs shrink-0">
             <a
               href="tel:16121"
-              className="flex items-center space-x-1 text-[#ABCFC3] hover:text-white font-bold transition"
+              className="hidden sm:flex items-center space-x-1 text-[#ABCFC3] hover:text-white font-semibold transition"
               title="Official DNCRP Consumer Hotline"
             >
-              <PhoneCall className="w-3 h-3 text-[#ABCFC3]" />
+              <PhoneCall className="w-3.5 h-3.5 text-[#ABCFC3]" />
               <span>{language === 'bn' ? 'জাতীয় ভোক্তা হটলাইন: ১৬১২১' : 'Helpline: 16121'}</span>
             </a>
-            <span className="text-[#64716A]">•</span>
+            <span className="text-[#63756C] hidden sm:inline">•</span>
+
             {/* Language Switch */}
             <button
+              id="btn-language-toggle"
+              type="button"
               onClick={onToggleLanguage}
-              className="flex items-center space-x-1 text-white hover:text-[#ABCFC3] font-bold transition"
+              className="flex items-center space-x-1 text-white hover:text-[#ABCFC3] font-bold transition focus:outline-none min-h-[44px] px-2 rounded"
               title={language === 'bn' ? 'Switch to English' : 'বাংলায় দেখুন'}
+              aria-label="Toggle Language"
             >
-              <Globe className="w-3 h-3 text-[#ABCFC3]" />
+              <Globe className="w-3.5 h-3.5 text-[#ABCFC3]" />
               <span>{language === 'bn' ? 'English' : 'বাংলা'}</span>
             </button>
-            <span className="text-[#64716A]">•</span>
-            {/* Accessibility Option */}
+
+            {/* Accessibility Settings Control */}
+            <span className="text-[#63756C] hidden sm:inline">•</span>
             <button
-              onClick={onToggleHighContrast}
-              className={`p-1 rounded text-[11px] font-semibold transition ${
+              id="btn-accessibility-toggle"
+              ref={accessibilityTriggerRef}
+              type="button"
+              onClick={(e) => onOpenAccessibility(e.currentTarget)}
+              className={`hidden sm:flex items-center space-x-1.5 p-1.5 rounded text-xs font-semibold transition focus:outline-none min-h-[44px] focus-visible:ring-2 focus-visible:ring-[#ABCFC3] ${
                 isHighContrast
-                  ? 'bg-black text-yellow-300 ring-1 ring-yellow-300'
-                  : 'text-[#D9E0DC] hover:text-white'
+                  ? 'bg-[#124A3B] text-white border border-[#ABCFC3]'
+                  : 'text-[#DDE4DF] hover:text-white'
               }`}
-              title={language === 'bn' ? 'উচ্চ কনট্রাস্ট প্রদর্শন' : 'High Contrast Mode'}
-              aria-label="Toggle High Contrast"
+              title={language === 'bn' ? 'অ্যাক্সেসিবিলিটি সেটিংস' : 'Accessibility Settings'}
+              aria-label={language === 'bn' ? 'অ্যাক্সেসিবিলিটি সেটিংস' : 'Accessibility Settings'}
+              aria-haspopup="dialog"
             >
-              <Eye className="w-3 h-3 inline mr-1" />
-              <span className="hidden md:inline">{language === 'bn' ? 'এক্সেসিবিলিটি' : 'Accessibility'}</span>
+              <Sliders className="w-3.5 h-3.5 text-[#ABCFC3]" />
+              <span>{language === 'bn' ? 'অ্যাক্সেসিবিলিটি' : 'Accessibility'}</span>
+              {isHighContrast && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
+              )}
             </button>
           </div>
         </div>
       </div>
 
-      {/* 2. Main Masthead */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        {/* Left: Brand Mark and Wordmark */}
-        <div className="flex items-center space-x-3">
+      {/* Tier 2: Unified Main Masthead & Integrated Navigation */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-h-16 py-2 flex items-center justify-between gap-3">
+        {/* Left: Brand Identity */}
+        <div className="flex items-center space-x-4 min-w-0 shrink-0">
           <button
+            type="button"
             onClick={() => onNavigateTab('landing')}
-            className="flex items-center space-x-3 text-left focus:outline-none group"
+            className="flex items-center space-x-3 text-left focus:outline-none group min-h-[44px]"
             aria-label="KenaSathi Home"
           >
-            <div className="w-10 h-10 rounded bg-[#176B53] flex items-center justify-center text-white shadow-sm ring-1 ring-[#176B53]/20">
+            <div className="w-9 h-9 rounded bg-[#176B53] group-hover:bg-[#124A3B] flex items-center justify-center text-white transition shadow-sm shrink-0">
               <Scale className="w-5 h-5 text-white" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="font-extrabold text-xl tracking-tight text-[#172B3A] group-hover:text-[#176B53] transition">
+                <span className="font-bold text-xl tracking-tight text-[#172B3A] group-hover:text-[#176B53] transition">
                   কেনাসাথী
                 </span>
-                <span className="text-[11px] font-medium text-[#64716A] border-l border-[#D9E0DC] pl-2 font-mono hidden sm:inline">
+                <span className="text-xs font-medium text-[#526359] border-l border-[#DDE4DF] pl-2 font-mono hidden sm:inline">
                   KenaSathi
                 </span>
               </div>
-              <p className="text-[11px] text-[#64716A]">
+              <p className="text-xs text-[#526359] hidden sm:block">
                 {language === 'bn' ? 'ভোক্তা অধিকার সহায়তা ও নির্দেশিকা' : 'Consumer Rights Assistance & Guidance'}
               </p>
             </div>
           </button>
-        </div>
 
-        {/* Right: Quick Search + Primary Action */}
-        <div className="flex items-center space-x-2.5">
-          {/* Quick Search (⌘K) */}
-          <button
-            onClick={onOpenCommandPalette}
-            className="hidden sm:flex items-center space-x-2 px-3 py-1.5 text-xs font-medium rounded border border-[#D9E0DC] bg-[#F4F6F5] text-[#64716A] hover:text-[#172B3A] hover:border-[#176B53] transition"
-            title="Search (Ctrl+K / ⌘K)"
-          >
-            <Search className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">{language === 'bn' ? 'অনুসন্ধান' : 'Search'}</span>
-            <span className="text-[10px] font-mono px-1 rounded bg-white border border-[#D9E0DC]">
-              ⌘K
-            </span>
-          </button>
-
-          {/* Citizen Guide Tour */}
-          <button
-            onClick={onOpenTour}
-            className="hidden md:flex items-center space-x-1 px-3 py-1.5 text-xs font-semibold rounded border border-[#D9E0DC] bg-white text-[#26352E] hover:bg-[#F4F6F5] transition"
-          >
-            <HelpCircle className="w-3.5 h-3.5 text-[#176B53]" />
-            <span>{language === 'bn' ? 'নির্দেশিকা' : 'Citizen Help'}</span>
-          </button>
-
-          {/* Prominent Primary Action: অভিযোগ প্রস্তুত করুন */}
-          {onOpenNewDispute && (
-            <button
-              onClick={onOpenNewDispute}
-              className="ks-btn ks-btn-primary text-xs sm:text-sm py-2 px-3.5 sm:px-4 font-bold shadow-sm flex items-center space-x-1.5"
-            >
-              <Plus className="w-4 h-4" />
-              <span>{language === 'bn' ? 'অভিযোগ প্রস্তুত করুন' : 'Draft Complaint'}</span>
-            </button>
-          )}
-
-          {/* Mobile Menu Toggle */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 rounded border border-[#D9E0DC] text-[#172B3A] hover:bg-[#F4F6F5]"
-            aria-label="Toggle Mobile Menu"
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-        </div>
-      </div>
-
-      {/* 3. Primary Navigation Bar (Desktop) */}
-      <div className="hidden lg:block border-t border-[#D9E0DC] bg-[#F4F6F5]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex items-center space-x-1 py-1" aria-label="Main Navigation">
+          {/* Integrated Desktop Navigation */}
+          <nav className="hidden xl:flex items-center space-x-1 pl-3 border-l border-[#DDE4DF] shrink-0" aria-label="Main Navigation">
             {navItems.map((item) => {
               const isActive =
                 activeTab === item.id ||
                 (item.id === 'services' && activeTab === 'overview') ||
                 (item.id === 'guide' && activeTab === 'directory') ||
-                (item.id === 'cases' && (activeTab === 'risk' || activeTab === 'complaint' || activeTab === 'check_purchase' || activeTab === 'inspector'));
+                (item.id === 'cases' &&
+                  (activeTab === 'risk' ||
+                    activeTab === 'complaint' ||
+                    activeTab === 'check_purchase' ||
+                    activeTab === 'inspector'));
 
               return (
                 <button
                   key={item.id}
+                  id={`nav-tab-${item.id}`}
+                  data-tab={item.id}
+                  type="button"
                   onClick={() => onNavigateTab(item.id)}
-                  className={`flex items-center space-x-2 px-3.5 py-2 rounded text-xs font-bold transition ${
-                    isActive
-                      ? 'bg-white text-[#176B53] shadow-xs border border-[#D9E0DC]'
-                      : 'text-[#64716A] hover:text-[#172B3A] hover:bg-white/60'
+                  className={`ks-nav-link flex items-center space-x-1.5 px-2 py-2 text-sm min-h-[44px] ${
+                    isActive ? 'active' : ''
                   }`}
+                  aria-pressed={isActive}
                 >
                   {item.icon}
                   <span>{language === 'bn' ? item.labelBn : item.labelEn}</span>
@@ -233,53 +198,165 @@ export const Navbar: React.FC<NavbarProps> = ({
             })}
           </nav>
         </div>
+
+        {/* Right: Quick Tools & Primary Action */}
+        <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+          {/* Quick Search (⌘K) */}
+          <button
+            type="button"
+            onClick={(event) => onOpenCommandPalette(event.currentTarget)}
+            className="hidden sm:flex items-center space-x-2 px-2.5 py-1.5 text-xs font-medium rounded border border-[#DDE4DF] bg-[#F5F7F5] text-[#526359] hover:text-[#172B3A] hover:border-[#176B53] transition min-h-[44px]"
+            title="Search (Ctrl+K / ⌘K)"
+            aria-label="Open Command Palette"
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span className="hidden 2xl:inline">{language === 'bn' ? 'অনুসন্ধান' : 'Search'}</span>
+            <span className="hidden 2xl:inline text-xs font-mono px-1 rounded bg-white border border-[#DDE4DF]">
+              ⌘K
+            </span>
+          </button>
+
+          {/* Help and FAQ Center */}
+          <button
+            type="button"
+            onClick={() => onNavigateTab('help')}
+            className="hidden md:flex items-center space-x-1 px-2.5 py-1.5 text-xs font-semibold rounded border border-[#DDE4DF] bg-white text-[#26352E] hover:bg-[#F5F7F5] transition min-h-[44px]"
+            aria-label={language === 'bn' ? 'সহায়তা ও সাধারণ প্রশ্নোত্তর' : 'Help and FAQs'}
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-[#176B53]" />
+            <span>{language === 'bn' ? 'সহায়তা ও FAQ' : 'Help & FAQs'}</span>
+          </button>
+
+          {/* Prominent Primary Action: অভিযোগ প্রস্তুত করুন */}
+          {onOpenNewDispute && (
+            <button
+              id="btn-open-new-dispute"
+              type="button"
+              onClick={onOpenNewDispute}
+            className="ks-btn ks-btn-primary group whitespace-nowrap flex items-center space-x-1.5 min-h-[44px]"
+              aria-label={language === 'bn' ? 'অভিযোগ প্রস্তুত করুন' : 'Draft Complaint'}
+            >
+              <Plus className="w-4 h-4 shrink-0 transition-transform duration-standard ease-standard group-hover:scale-110" />
+              <span className="hidden sm:inline">{language === 'bn' ? 'অভিযোগ প্রস্তুত করুন' : 'Draft Complaint'}</span>
+              <span className="sm:hidden">{language === 'bn' ? 'অভিযোগ' : 'Draft'}</span>
+            </button>
+          )}
+
+          {/* Mobile Menu Toggle */}
+          <button
+            id="btn-mobile-menu-toggle"
+            ref={mobileMenuToggleRef}
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="xl:hidden p-2 rounded border border-[#DDE4DF] text-[#172B3A] hover:bg-[#F5F7F5] min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors duration-fast"
+            aria-label="Toggle Mobile Menu"
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
-      {/* 4. Mobile Navigation Drawer */}
+      {/* Mobile Drawer (Accessible, full-height touch targets, secondary utilities) */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-[#D9E0DC] bg-white px-4 py-4 space-y-2 shadow-dropdown">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-[#64716A] px-2 mb-1">
+        <div className="xl:hidden border-t border-[#DDE4DF] bg-white px-4 py-4 space-y-3 shadow-dropdown">
+          <div className="text-xs font-bold uppercase tracking-wider text-[#526359] px-2">
             {language === 'bn' ? 'মেনু নেভিগেশন' : 'Navigation'}
           </div>
-          {navItems.map((item) => (
+          <div className="space-y-1">
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  onNavigateTab(item.id);
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center space-x-3 px-3 py-3 rounded text-sm font-semibold text-left transition min-h-[48px] ${
+                  activeTab === item.id
+                    ? 'bg-[#EAF3EE] text-[#176B53] font-bold'
+                    : 'text-[#26352E] hover:bg-[#F5F7F5]'
+                }`}
+              >
+                {item.icon}
+                <span>{language === 'bn' ? item.labelBn : item.labelEn}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Secondary Utilities moved cleanly into Drawer */}
+          <div className="pt-3 border-t border-[#DDE4DF] space-y-2">
+            <div className="text-xs font-bold uppercase tracking-wider text-[#526359] px-2 mb-1">
+              {language === 'bn' ? 'সহায়তা ও সুবিধা' : 'Assistance & Settings'}
+            </div>
+
+            {/* Accessibility Settings Action */}
             <button
-              key={item.id}
+              id="btn-mobile-accessibility"
+              type="button"
               onClick={() => {
-                onNavigateTab(item.id);
+                const restoreTarget = mobileMenuToggleRef.current;
+                setMobileMenuOpen(false);
+                onOpenAccessibility(restoreTarget);
+              }}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded border border-[#DDE4DF] text-xs font-semibold text-[#26352E] hover:bg-[#F5F7F5] min-h-[44px] focus-visible:ring-2 focus-visible:ring-[#176B53]"
+              aria-haspopup="dialog"
+            >
+              <span className="flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-[#176B53]" />
+                <span>{language === 'bn' ? 'অ্যাক্সেসিবিলিটি সেটিংস' : 'Accessibility Settings'}</span>
+              </span>
+              <span className="text-xs text-[#176B53] font-bold">
+                {language === 'bn' ? 'পরিবর্তন করুন' : 'Settings'}
+              </span>
+            </button>
+
+            {/* National Consumer Hotline 16121 Call Link */}
+            <a
+              href="tel:16121"
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded bg-[#EAF3EE] text-[#176B53] font-semibold text-xs min-h-[44px]"
+            >
+              <span className="flex items-center gap-2">
+                <PhoneCall className="w-4 h-4 text-[#176B53]" />
+                <span>{language === 'bn' ? 'ভোক্তা অধিকার হেল্পলাইন' : 'Consumer Helpline'}</span>
+              </span>
+              <span className="font-mono font-bold text-xs">১৬১২১</span>
+            </a>
+
+            {/* Tour & Palette triggers */}
+            <button
+              type="button"
+              onClick={() => {
+                onNavigateTab('help');
                 setMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center space-x-2.5 px-3 py-2.5 rounded text-xs font-bold text-left transition ${
-                activeTab === item.id
-                  ? 'bg-[#EAF3F0] text-[#176B53]'
-                  : 'text-[#26352E] hover:bg-[#F4F6F5]'
-              }`}
+              className="w-full flex items-center space-x-2 px-3 py-2.5 text-xs font-semibold text-[#26352E] hover:text-[#176B53] min-h-[44px]"
             >
-              {item.icon}
-              <span>{language === 'bn' ? item.labelBn : item.labelEn}</span>
+              <HelpCircle className="w-4 h-4 text-[#176B53]" />
+              <span>{language === 'bn' ? 'সহায়তা ও সাধারণ প্রশ্নোত্তর' : 'Help and FAQs'}</span>
             </button>
-          ))}
-
-          <div className="pt-3 border-t border-[#D9E0DC] space-y-2">
             <button
+              type="button"
               onClick={() => {
                 onOpenTour();
                 setMobileMenuOpen(false);
               }}
-              className="w-full flex items-center space-x-2 px-3 py-2 text-xs font-semibold text-[#64716A]"
+              className="w-full flex items-center space-x-2 px-3 py-2.5 text-xs font-semibold text-[#526359] hover:text-[#172B3A] min-h-[44px]"
             >
               <HelpCircle className="w-4 h-4 text-[#176B53]" />
               <span>{language === 'bn' ? 'ব্যবহারবিধি ও নাগরিক নির্দেশিকা' : 'Citizen Help Guide'}</span>
             </button>
 
             <button
+              type="button"
               onClick={() => {
-                onOpenCommandPalette();
+                onOpenCommandPalette(mobileMenuToggleRef.current);
                 setMobileMenuOpen(false);
               }}
-              className="w-full flex items-center space-x-2 px-3 py-2 text-xs font-semibold text-[#64716A]"
+              className="w-full flex items-center space-x-2 px-3 py-2.5 text-xs font-semibold text-[#526359] hover:text-[#172B3A] min-h-[44px]"
             >
               <Search className="w-4 h-4" />
-              <span>{language === 'bn' ? 'অনুসন্ধান করুন (⌘K)' : 'Search (⌘K)'}</span>
+              <span>{language === 'bn' ? 'দ্রুত অনুসন্ধান (⌘K)' : 'Quick Search (⌘K)'}</span>
             </button>
           </div>
         </div>

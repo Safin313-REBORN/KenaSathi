@@ -61,21 +61,21 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
     live_ai_success: {
       labelBn: 'ঐচ্ছিক ক্লাউড এআই বিশ্লেষণ',
       labelEn: 'Optional Cloud AI Analysis',
-      color: 'bg-[#EAF3F0] text-[#176B53] border-[#ABCFC3]',
-      descBn: 'ব্যবহারকারীর সম্মতিক্রমে ক্লাউড মডেল দ্বারা নথিপত্র ও তথ্যাবলি অডিট করা হয়েছে।',
-      descEn: 'Audited via secure external AI provider with client-side PII sanitization upon consent.',
+      color: 'bg-[#EAF3EE] text-[#176B53] border-[#ABCFC3]',
+      descBn: 'আপনার সম্মতিতে নির্বাচিত উপকরণটি বাছাই করা এআই সেবায় পাঠানো হয়েছে। ওই সেবার গোপনীয়তার শর্ত দেখে নিন।',
+      descEn: 'Selected materials were sent to the chosen AI provider after your consent. Review that provider’s privacy terms.',
     },
     local_rules_fallback: {
       labelBn: 'লোকাল ডিটারমিনিস্টিক রুলস',
       labelEn: 'Local Deterministic Rules',
-      color: 'bg-[#F4F6F5] text-[#172B3A] border-[#D9E0DC]',
+      color: 'bg-[#F5F7F5] text-[#172B3A] border-[#DDE4DF]',
       descBn: 'ব্রাউজারের নিজস্ব আইনি নিয়মে সম্পূর্ণ অফলাইনে যাচাই করা হয়েছে।',
       descEn: 'Executed locally in-browser via deterministic statutory rules.',
     },
     missing_credentials: {
       labelBn: 'অফলাইন লোকাল রুলস মোড',
       labelEn: 'Offline Local Mode',
-      color: 'bg-[#FEF7EC] text-[#A96C16] border-[#FDE68A]',
+      color: 'bg-[#FEF7EC] text-[#945607] border-[#FDE68A]',
       descBn: 'কোনো এপিআই কী ছাড়া অফলাইন লোকাল রুলস ফাইলে অডিট পরিচালিত হয়েছে।',
       descEn: 'Processed using offline statutory rule engine.',
     },
@@ -89,7 +89,7 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
     local_deterministic: {
       labelBn: 'লোকাল প্রিভিউ ডেমো',
       labelEn: 'Local Demonstration',
-      color: 'bg-[#F4F6F5] text-[#64716A] border-[#D9E0DC]',
+      color: 'bg-[#F5F7F5] text-[#526359] border-[#DDE4DF]',
       descBn: 'নমুনা আইনি ডসিয়ার থেকে সরাসরি অফলাইনে প্রদর্শিত।',
       descEn: 'Loaded from local deterministic scenario.',
     },
@@ -102,20 +102,40 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
   const modeInfo = modeMetadata[normalizedMode] || modeMetadata.local_rules_fallback;
 
   return (
-    <div className="space-y-6 animate-fadeIn max-w-6xl mx-auto py-2">
+    <div className="space-y-8 animate-fadeIn max-w-6xl mx-auto py-4 px-4 sm:px-6">
+      {/* Explicit Fictional Demo Banner */}
+      {Boolean(currentCase.isDemo || currentCase.complaintDossier?.isDemo) && (
+        <div
+          role="status"
+          className="bg-[#FFF8E6] border border-[#F3D78A] text-[#7A4B04] px-4 py-2.5 rounded-md flex items-center justify-between gap-3 text-xs font-semibold shadow-xs"
+        >
+          <div className="flex items-center space-x-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-[#E08A00] shrink-0" />
+            <span>
+              {language === 'bn'
+                ? 'নমুনা কাল্পনিক তথ্য — প্রকৃত অভিযোগ নয়'
+                : 'Fictional demonstration data — not a real consumer complaint.'}
+            </span>
+          </div>
+          <span className="text-xs font-mono opacity-80 uppercase tracking-wider">
+            {language === 'bn' ? 'ডেমো কেস' : 'Demo Mode'}
+          </span>
+        </div>
+      )}
+
       {/* Top Header & Transparency Strip */}
-      <div className="bg-white border border-[#D9E0DC] rounded-lg p-5 sm:p-6 space-y-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white border border-[#DDE4DF] rounded-md p-6 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#F4F6F5] border border-[#D9E0DC] text-[#64716A] font-bold">
+              <span id="inspection-case-id" className="font-mono text-xs px-2.5 py-1 rounded bg-[#F5F7F5] border border-[#DDE4DF] text-[#172B3A] font-bold">
                 {currentCase.id}
               </span>
-              <span className={`px-2 py-0.5 rounded text-xs font-bold border ${modeInfo.color}`}>
+              <span className={`px-2.5 py-1 rounded text-xs font-bold border ${modeInfo.color}`}>
                 {language === 'bn' ? modeInfo.labelBn : modeInfo.labelEn}
               </span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-[#172B3A] mt-2">
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#172B3A] mt-2">
               {currentCase.productName || 'অনলাইন ক্রয় বিরোধ ও প্রমাণ যাচাই'}
             </h1>
           </div>
@@ -125,26 +145,26 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
             onClick={onOpenNewCaseModal}
             className="ks-btn ks-btn-primary text-xs py-2 px-4 self-start sm:self-auto font-bold shrink-0"
           >
-            <Upload className="w-3.5 h-3.5" />
+            <Upload className="w-4 h-4" />
             <span>{language === 'bn' ? 'নতুন রসিদ / প্রমাণ যাচাই' : 'Upload Evidence'}</span>
           </button>
         </div>
 
-        <p className="text-xs text-[#64716A] leading-relaxed border-t border-[#E8ECE9] pt-3">
+        <p className="text-xs text-[#526359] leading-relaxed border-t border-[#DDE4DF] pt-3">
           {language === 'bn' ? modeInfo.descBn : modeInfo.descEn}
         </p>
       </div>
 
       {/* Fact Provenance Audit */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#DDE4DF] pb-3">
           <div>
-            <h2 className="text-lg font-bold text-[#172B3A]">
+            <h2 className="text-xl font-bold text-[#172B3A]">
               {language === 'bn' ? 'শনাক্তকৃত তথ্যাবলি ও প্রামাণ্য উৎস' : 'Extracted Facts & Provenance'}
             </h2>
-            <p className="text-xs text-[#64716A]">
+            <p className="text-xs text-[#526359]">
               {language === 'bn'
-                ? 'প্রতিটি তথ্যের সুনির্দিষ্ট উৎস চিহ্নিত করা হয়েছে (কোনো ভুয়া নিশ্চয়তা ছাড়াই)।'
+                ? 'প্রতিটি তথ্যের সুনির্দিষ্ট উৎস চিহ্নিত করা হয়েছে (কোনো কৃত্রিম নিশ্চয়তা ছাড়া)।'
                 : 'Each fact is categorized strictly by source without artificial certainty.'}
             </p>
           </div>
@@ -154,10 +174,10 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
             <button
               type="button"
               onClick={() => setSelectedFactTab('all')}
-              className={`px-3 py-1 rounded border font-semibold transition ${
+              className={`px-3 py-1.5 rounded border font-semibold transition ${
                 selectedFactTab === 'all'
                   ? 'bg-[#172B3A] text-white border-[#172B3A]'
-                  : 'bg-white text-[#64716A] border-[#D9E0DC] hover:bg-[#F4F6F5]'
+                  : 'bg-white text-[#526359] border-[#DDE4DF] hover:bg-[#F5F7F5]'
               }`}
             >
               {language === 'bn' ? 'সকল তথ্য' : 'All'} ({allFacts.length})
@@ -165,10 +185,10 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
             <button
               type="button"
               onClick={() => setSelectedFactTab('verified')}
-              className={`px-3 py-1 rounded border font-semibold transition ${
+              className={`px-3 py-1.5 rounded border font-semibold transition ${
                 selectedFactTab === 'verified'
                   ? 'bg-[#176B53] text-white border-[#176B53]'
-                  : 'bg-white text-[#64716A] border-[#D9E0DC] hover:bg-[#F4F6F5]'
+                  : 'bg-white text-[#526359] border-[#DDE4DF] hover:bg-[#F5F7F5]'
               }`}
             >
               {language === 'bn' ? 'যাচাইকৃত' : 'Verified'} ({verifiedFacts.length})
@@ -176,10 +196,10 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
             <button
               type="button"
               onClick={() => setSelectedFactTab('pattern')}
-              className={`px-3 py-1 rounded border font-semibold transition ${
+              className={`px-3 py-1.5 rounded border font-semibold transition ${
                 selectedFactTab === 'pattern'
                   ? 'bg-[#176B53] text-white border-[#176B53]'
-                  : 'bg-white text-[#64716A] border-[#D9E0DC] hover:bg-[#F4F6F5]'
+                  : 'bg-white text-[#526359] border-[#DDE4DF] hover:bg-[#F5F7F5]'
               }`}
             >
               {language === 'bn' ? 'প্যাটার্ন শনাক্ত' : 'Pattern Extracted'} ({patternFacts.length})
@@ -187,10 +207,10 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
             <button
               type="button"
               onClick={() => setSelectedFactTab('user')}
-              className={`px-3 py-1 rounded border font-semibold transition ${
+              className={`px-3 py-1.5 rounded border font-semibold transition ${
                 selectedFactTab === 'user'
                   ? 'bg-[#172B3A] text-white border-[#172B3A]'
-                  : 'bg-white text-[#64716A] border-[#D9E0DC] hover:bg-[#F4F6F5]'
+                  : 'bg-white text-[#526359] border-[#DDE4DF] hover:bg-[#F5F7F5]'
               }`}
             >
               {language === 'bn' ? 'ভোক্তা প্রদত্ত' : 'User Reported'} ({userReportedFacts.length})
@@ -198,10 +218,10 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
             <button
               type="button"
               onClick={() => setSelectedFactTab('model')}
-              className={`px-3 py-1 rounded border font-semibold transition ${
+              className={`px-3 py-1.5 rounded border font-semibold transition ${
                 selectedFactTab === 'model'
-                  ? 'bg-indigo-700 text-white border-indigo-700'
-                  : 'bg-white text-[#64716A] border-[#D9E0DC] hover:bg-[#F4F6F5]'
+                  ? 'bg-[#176B53] text-white border-[#176B53]'
+                  : 'bg-white text-[#526359] border-[#DDE4DF] hover:bg-[#F5F7F5]'
               }`}
             >
               {language === 'bn' ? 'এআই প্রস্তাবিত' : 'AI Suggested'} ({modelSuggestedFacts.length})
@@ -210,7 +230,7 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
         </div>
 
         {/* Facts List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {displayedFacts.length > 0 ? (
             displayedFacts.map((fact) => {
               const isPattern = fact.factStatus === 'pattern_extracted';
@@ -220,27 +240,27 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
               return (
                 <div
                   key={fact.id}
-                  className="bg-white border border-[#D9E0DC] rounded-lg p-4 space-y-2 flex flex-col justify-between"
+                  className="bg-white border border-[#DDE4DF] rounded-md p-4 space-y-3 flex flex-col justify-between"
                 >
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-[#64716A]">
+                      <span className="text-xs font-semibold text-[#526359]">
                         {language === 'bn' ? fact.labelBn : fact.labelEn}
                       </span>
                       {isVerified ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EAF3F0] text-[#176B53] border border-[#ABCFC3]">
+                        <span className="ks-badge ks-badge-verified">
                           {language === 'bn' ? 'যাচাইকৃত' : 'Verified'}
                         </span>
                       ) : isPattern ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EAF3F0] text-[#176B53] border border-[#ABCFC3]">
+                        <span className="ks-badge ks-badge-verified">
                           {language === 'bn' ? 'প্যাটার্ন শনাক্ত' : 'Pattern Match'}
                         </span>
                       ) : isUser ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#F4F6F5] text-[#64716A] border border-[#D9E0DC]">
+                        <span className="ks-badge ks-badge-neutral">
                           {language === 'bn' ? 'ভোক্তা প্রদত্ত' : 'User Stated'}
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        <span className="ks-badge ks-badge-teal">
                           {language === 'bn' ? 'মডেল প্রস্তাবিত' : 'AI Suggested'}
                         </span>
                       )}
@@ -250,10 +270,10 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-[#E8ECE9] flex items-center justify-between text-[11px] text-[#8A9790]">
+                  <div className="pt-2 border-t border-[#DDE4DF] flex items-center justify-between text-xs text-[#526359]">
                     <span>
                       {language === 'bn' ? 'উৎস নথি:' : 'Source:'}{' '}
-                      <strong className="text-[#64716A]">{fact.sourceDocName || 'ইনপুট ফর্ম'}</strong>
+                      <strong className="text-[#26352E]">{fact.sourceDocName || 'ইনপুট ফর্ম'}</strong>
                     </span>
                     <span className="italic">
                       {fact.verified ? 'প্রামাণ্য' : 'যাচাই সাপেক্ষ'}
@@ -263,7 +283,7 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
               );
             })
           ) : (
-            <div className="col-span-2 p-8 text-center bg-white border border-[#D9E0DC] rounded-lg text-xs text-[#64716A]">
+            <div className="col-span-2 p-8 text-center bg-white border border-[#DDE4DF] rounded-md text-xs text-[#526359]">
               {language === 'bn'
                 ? 'এই ক্যাটাগরিতে কোনো তথ্য পাওয়া যায়নি।'
                 : 'No facts found in this category.'}
@@ -273,12 +293,12 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
       </div>
 
       {/* Statutory Risk Assessment Breakdown */}
-      <div className="bg-white border border-[#D9E0DC] rounded-lg p-6 space-y-6 shadow-sm">
-        <div>
-          <h2 className="text-lg font-bold text-[#172B3A]">
+      <div className="bg-white border border-[#DDE4DF] rounded-md p-6 space-y-6 shadow-sm">
+        <div className="border-b border-[#DDE4DF] pb-3">
+          <h2 className="text-xl font-bold text-[#172B3A]">
             {language === 'bn' ? 'আইনি ঝুঁকি ও পর্যবেক্ষণ সারসংক্ষেপ' : 'Statutory Risk Assessment'}
           </h2>
-          <p className="text-xs text-[#64716A]">
+          <p className="text-xs text-[#526359] mt-0.5">
             {language === 'bn'
               ? 'ভোক্তা অধিকার সংরক্ষণ আইন ২০০৯ অনুসারে পর্যবেক্ষণের বিবরণ ও গুরুত্ব।'
               : 'Detailed breakdown of observed signals under Consumer Rights Protection Act 2009.'}
@@ -293,43 +313,43 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
             return (
               <div
                 key={item.id}
-                className={`p-4 rounded border flex flex-col sm:flex-row sm:items-start justify-between gap-3 ${
+                className={`p-4 rounded-md border flex flex-col sm:flex-row sm:items-start justify-between gap-3 ${
                   isWarning
-                    ? 'bg-amber-50/70 border-amber-200'
+                    ? 'bg-[#FEF7EC] border-[#FDE68A]'
                     : isVerified
-                    ? 'bg-[#EAF3F0] border-[#ABCFC3]'
-                    : 'bg-[#F4F6F5] border-[#D9E0DC]'
+                    ? 'bg-[#EAF3EE] border-[#ABCFC3]'
+                    : 'bg-[#F5F7F5] border-[#DDE4DF]'
                 }`}
               >
                 <div className="space-y-1">
                   <div className="flex items-center space-x-2">
                     {isWarning ? (
-                      <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                      <AlertTriangle className="w-4 h-4 text-[#945607] shrink-0" />
                     ) : isVerified ? (
                       <CheckCircle2 className="w-4 h-4 text-[#176B53] shrink-0" />
                     ) : (
-                      <HelpCircle className="w-4 h-4 text-slate-500 shrink-0" />
+                      <HelpCircle className="w-4 h-4 text-[#526359] shrink-0" />
                     )}
                     <span className="font-bold text-sm text-[#172B3A]">
                       {language === 'bn' ? item.titleBn : item.titleEn}
                     </span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-white border border-[#D9E0DC] text-[#64716A]">
+                    <span className="px-2 py-0.5 rounded text-xs font-mono bg-white border border-[#DDE4DF] text-[#526359]">
                       {item.provenance || 'pattern_extracted'}
                     </span>
                   </div>
-                  <p className="text-xs text-[#64716A] pl-6 leading-relaxed">
+                  <p className="text-xs text-[#526359] pl-6 leading-relaxed">
                     {language === 'bn' ? item.detailBn : item.detailEn}
                   </p>
                 </div>
 
                 <div className="sm:self-center shrink-0 pl-6 sm:pl-0">
                   <span
-                    className={`text-xs font-bold px-2.5 py-0.5 rounded ${
+                    className={`text-xs font-bold px-2.5 py-1 rounded ${
                       isWarning
-                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                        ? 'bg-[#FEF7EC] text-[#945607] border border-[#FDE68A]'
                         : isVerified
-                        ? 'bg-[#EAF3F0] text-[#176B53] border border-[#ABCFC3]'
-                        : 'bg-slate-200 text-slate-700'
+                        ? 'bg-[#EAF3EE] text-[#176B53] border border-[#ABCFC3]'
+                        : 'bg-white text-[#526359] border border-[#DDE4DF]'
                     }`}
                   >
                     {isWarning
@@ -351,7 +371,7 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
         </div>
 
         {/* Limitation Reminder Bar */}
-        <div className="p-4 rounded bg-[#F4F6F5] border border-[#D9E0DC] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-4 rounded-md bg-[#F5F7F5] border border-[#DDE4DF] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center space-x-3 text-xs text-[#172B3A]">
             <Clock className="w-5 h-5 text-[#176B53] shrink-0" />
             <div>
@@ -379,10 +399,10 @@ export const PurchaseInspectionView: React.FC<PurchaseInspectionViewProps> = ({
           <button
             type="button"
             onClick={onOpenComplaintBuilder}
-            className="ks-btn ks-btn-primary text-xs py-2 px-3.5 shrink-0 font-bold"
+            className="ks-btn ks-btn-primary text-xs py-2 px-4 shrink-0 font-bold"
           >
             <span>{language === 'bn' ? 'অভিযোগপত্র খসড়া দেখুন' : 'Draft Formal Complaint'}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       </div>

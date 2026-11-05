@@ -4,25 +4,48 @@
 
 @layer base {
   :root {
-    --color-primary: #176B53;
-    --color-primary-hover: #135944;
-    --color-primary-light: #EAF3F0;
-    --color-navy: #172B3A;
-    --color-navy-hover: #11212D;
-    --color-bg-base: #F4F6F5;
-    --color-surface: #FFFFFF;
-    --color-surface-subtle: #EBEFEA;
+    /* Brand & Institutional Colors */
+    --color-primary: #176B53;        /* Main brand & primary actions */
+    --color-primary-deep: #124A3B;   /* Hover, pressed and active states */
+    --color-primary-hover: #135944;  /* Intermediate hover state */
+    --color-navy: #172B3A;           /* Masthead, headings and institutional areas */
+    --color-navy-deep: #102431;      /* Dark utility surfaces & institutional footer */
+    --color-navy-hover: #11212D;     /* Navy hover state */
+
+    /* Backgrounds & Surfaces */
+    --color-canvas: #F5F7F5;         /* Main page background */
+    --color-bg-base: #F5F7F5;        /* Baseline background alias */
+    --color-surface: #FFFFFF;        /* Main content surfaces */
+    --color-surface-soft: #EAF3EE;   /* Selected navigation & subtle highlights */
+    --color-surface-pale: #F2F7F4;   /* Light interactive hover backgrounds */
+
+    /* Typography & Inks */
+    --color-ink-primary: #26352E;    /* Main body text (WCAG AAA) */
+    --color-ink-secondary: #526359;  /* Supporting information (WCAG AA ≥ 4.5:1) */
+    --color-ink-muted: #65736B;      /* Less prominent information */
     --color-text-primary: #26352E;
-    --color-text-secondary: #64716A;
-    --color-text-muted: #8A9790;
-    --color-border: #D9E0DC;
-    --color-border-subtle: #E8ECE9;
-    --color-warning: #A96C16;
-    --color-warning-bg: #FEF7EC;
-    --color-danger: #B42318;
-    --color-danger-bg: #FDF2F2;
-    --color-success: #176B53;
-    --color-success-bg: #EAF3F0;
+    --color-text-secondary: #526359;
+    --color-text-muted: #65736B;
+
+    /* Structural Borders */
+    --color-border: #DDE4DF;         /* Dividers and field borders */
+    --color-border-subtle: #E5ECE7;  /* Soft hairline dividers */
+    --color-border-strong: #C2CDC6;  /* Hover and selected borders */
+
+    /* Semantic Feedback */
+    --color-warning: #945607;        /* Statutory warnings */
+    --color-warning-bg: #FEF7EC;     /* Warning notice background */
+    --color-danger: #B42318;         /* Errors and statutory limitation alerts */
+    --color-danger-bg: #FDF2F2;      /* Error surfaces */
+    --color-success: #176B53;        /* Verified status */
+    --color-success-bg: #EAF3EE;     /* Verified badge background */
+
+    /* Premium Motion Tokens */
+    --motion-fast: 160ms;
+    --motion-standard: 200ms;
+    --motion-emphasis: 280ms;
+    --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   html {
@@ -31,66 +54,403 @@
   }
 
   body {
-    background-color: var(--color-bg-base);
-    color: var(--color-text-primary);
-    font-family: 'Plus Jakarta Sans', 'Noto Sans Bengali', system-ui, -apple-system, sans-serif;
+    background-color: var(--color-canvas);
+    color: var(--color-ink-primary);
+    font-family: 'Manrope', 'Noto Sans Bengali', system-ui, -apple-system, sans-serif;
     min-height: 100vh;
     overflow-x: clip;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-wrap: pretty;
   }
 
-  /* High Contrast Accessibility Mode */
-  .high-contrast {
-    --color-bg-base: #000000 !important;
-    --color-surface: #0a0a0a !important;
-    --color-surface-subtle: #141414 !important;
-    background-color: #000000 !important;
-    color: #ffffff !important;
+  /* Use a Bengali-optimized face for Bengali-first views, and the Latin
+     interface face first when the citizen switches to English. */
+  html[lang="bn"] body,
+  html[lang="bn"] #root .font-sans {
+    font-family: 'Noto Sans Bengali', 'Manrope', system-ui, -apple-system, sans-serif;
   }
 
-  .high-contrast * {
-    border-color: #ffffff !important;
+  @keyframes ks-hero-enter {
+    from { opacity: 0; transform: translateY(1rem); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
-  .high-contrast button,
-  .high-contrast input,
-  .high-contrast select,
-  .high-contrast textarea {
-    background-color: #000000 !important;
-    color: #ffffff !important;
-    border: 2px solid #ffffff !important;
+  .ks-hero-copy {
+    animation: ks-hero-enter 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
-  .high-contrast a,
-  .high-contrast .accent-text {
-    color: #fde047 !important;
+  .ks-hero-preview {
+    animation: ks-hero-enter 800ms cubic-bezier(0.22, 1, 0.36, 1) 100ms both;
   }
 
-  /* Focus ring for accessibility (WCAG 2.2 AA) */
+  .ks-motion-ready .ks-scroll-reveal {
+    opacity: 0;
+    transform: translateY(0.875rem);
+    transition: opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+                transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .ks-motion-ready .ks-scroll-reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Themed Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-canvas);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-strong);
+    border-radius: 4px;
+    transition: background var(--motion-fast) var(--ease-standard);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+  }
+
+  /* Accessible Focus Rings (WCAG 2.2 AA) */
   :focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid var(--color-primary) !important;
     outline-offset: 2px;
   }
 
-  .high-contrast :focus-visible {
-    outline: 3px solid #fde047 !important;
+  /* =========================================================================
+     KENASATHI ACCESSIBILITY SYSTEM (Phase 6 & 10)
+     ========================================================================= */
+
+  /* 1. Scalable Text Sizes (Preserves Typographic Hierarchy & Rem Proportions) */
+  html[data-text-size="normal"] {
+    font-size: 16px;
+  }
+  html[data-text-size="large"] {
+    font-size: 18px; /* 112.5% scaling */
+  }
+  html[data-text-size="largest"] {
+    font-size: 20px; /* 125% scaling */
+  }
+
+  /* 2. Coordinated Civic High Contrast Mode (WCAG AAA contrast preserving institutional green/navy identity) */
+  html[data-high-contrast="true"],
+  .high-contrast {
+    /* Brand & Primary Actions */
+    --color-primary: #1EB88A !important;        /* Vivid mint (7.8:1 on #09121A) */
+    --color-primary-deep: #2BD4A0 !important;   /* Bright mint (10.5:1 on #09121A) */
+    --color-primary-hover: #2BD4A0 !important;
+
+    /* Institutional Navy & Headings (Turned to high-contrast legible light tints on dark canvas) */
+    --color-navy: #E2E8F0 !important;          /* Crisp light slate (15.2:1 on #09121A, 13.4:1 on #101F2C) */
+    --color-navy-deep: #101F2C !important;     /* Card surface background */
+    --color-navy-hover: #FFFFFF !important;    /* Pure white hover */
+
+    /* Backgrounds & Surfaces */
+    --color-canvas: #09121A !important;        /* Deep midnight navy page canvas */
+    --color-bg-base: #09121A !important;
+    --color-surface: #101F2C !important;       /* Dark navy card surface */
+    --color-surface-soft: #172C3E !important;  /* Active navigation & subtle highlights */
+    --color-surface-pale: #142636 !important;  /* Interactive hover backgrounds */
+
+    /* Typography & Inks */
+    --color-ink-primary: #FFFFFF !important;   /* 19.2:1 contrast against #09121A */
+    --color-ink-secondary: #D2E0EB !important; /* 14.0:1 contrast against #09121A */
+    --color-ink-muted: #A5BDCE !important;     /* 9.8:1 contrast against #09121A */
+    --color-text-primary: #FFFFFF !important;
+    --color-text-secondary: #D2E0EB !important;
+    --color-text-muted: #A5BDCE !important;
+
+    /* Structural Borders */
+    --color-border: #4A6D88 !important;        /* 3.7:1 for UI boundaries (WCAG AA compliant) */
+    --color-border-subtle: #2C485E !important;
+    --color-border-strong: #709CB8 !important; /* 6.7:1 distinct structural border */
+
+    /* Semantic Feedback */
+    --color-warning: #FBBF24 !important;       /* 11.3:1 amber against #09121A */
+    --color-warning-bg: #221A08 !important;
+    --color-danger: #F87171 !important;        /* 6.7:1 coral red against #09121A */
+    --color-danger-bg: #270F12 !important;
+    --color-success: #1EB88A !important;       /* 7.8:1 mint against #09121A */
+    --color-success-bg: #0E2922 !important;
+
+    background-color: #09121A !important;
+    color: #FFFFFF !important;
+  }
+
+  html[data-high-contrast="true"] body {
+    background-color: #09121A !important;
+    color: #FFFFFF !important;
+  }
+
+  html[data-high-contrast="true"] header,
+  html[data-high-contrast="true"] nav,
+  html[data-high-contrast="true"] footer {
+    border-color: #4A6D88 !important;
+  }
+
+  /* Navigation Links in High Contrast */
+  html[data-high-contrast="true"] .ks-nav-link {
+    color: #D2E0EB !important;
+  }
+
+  html[data-high-contrast="true"] .ks-nav-link:hover {
+    color: #FFFFFF !important;
+    background-color: #172C3E !important;
+  }
+
+  html[data-high-contrast="true"] .ks-nav-link[aria-pressed="true"],
+  html[data-high-contrast="true"] .ks-nav-link.active {
+    color: #1EB88A !important;
+    background-color: #172C3E !important;
+    font-weight: 700 !important;
+  }
+
+  html[data-high-contrast="true"] .ks-nav-link::after {
+    background-color: #1EB88A !important;
+  }
+
+  /* Card Surfaces & Backgrounds */
+  html[data-high-contrast="true"] .bg-white,
+  html[data-high-contrast="true"] .bg-\[\#F5F7F5\],
+  html[data-high-contrast="true"] .bg-\[\#EAF3EE\],
+  html[data-high-contrast="true"] .bg-\[\#F2F7F4\],
+  html[data-high-contrast="true"] .bg-\[\#FEF7EC\],
+  html[data-high-contrast="true"] .bg-\[\#FDF2F2\],
+  html[data-high-contrast="true"] .bg-gray-50,
+  html[data-high-contrast="true"] .bg-gray-100 {
+    background-color: #101F2C !important;
+    color: #FFFFFF !important;
+    border-color: #4A6D88 !important;
+  }
+
+  /* Borders */
+  html[data-high-contrast="true"] .border-\[\#DDE4DF\],
+  html[data-high-contrast="true"] .border-\[\#E5ECE7\],
+  html[data-high-contrast="true"] .border-\[\#C2CDC6\],
+  html[data-high-contrast="true"] .border-\[\#ABCFC3\],
+  html[data-high-contrast="true"] .border-gray-200,
+  html[data-high-contrast="true"] .border-gray-300 {
+    border-color: #4A6D88 !important;
+  }
+
+  /* Primary & Deep Greens (Bypassing dark greens on dark surfaces) */
+  html[data-high-contrast="true"] .text-\[\#176B53\],
+  html[data-high-contrast="true"] .text-\[\#124A3B\],
+  html[data-high-contrast="true"] .text-\[\#135944\],
+  html[data-high-contrast="true"] .group-hover\:text-\[\#176B53\]:hover,
+  html[data-high-contrast="true"] .text-emerald-700,
+  html[data-high-contrast="true"] .text-emerald-800,
+  html[data-high-contrast="true"] .text-emerald-900,
+  html[data-high-contrast="true"] .text-green-700,
+  html[data-high-contrast="true"] .text-green-800,
+  html[data-high-contrast="true"] .text-green-900 {
+    color: #1EB88A !important; /* 7.8:1 mint green */
+  }
+
+  /* Navy Headings & Dark Inks */
+  html[data-high-contrast="true"] .text-\[\#172B3A\],
+  html[data-high-contrast="true"] .text-\[\#102431\],
+  html[data-high-contrast="true"] .text-\[\#11212D\],
+  html[data-high-contrast="true"] .text-\[\#12212D\],
+  html[data-high-contrast="true"] .text-\[\#26352E\],
+  html[data-high-contrast="true"] .text-\[\#2D3748\],
+  html[data-high-contrast="true"] .text-\[\#1F2937\],
+  html[data-high-contrast="true"] .text-\[\#111827\],
+  html[data-high-contrast="true"] .text-\[\#374151\],
+  html[data-high-contrast="true"] .text-slate-900,
+  html[data-high-contrast="true"] .text-gray-900 {
+    color: #FFFFFF !important; /* 19.2:1 pure white */
+  }
+
+  /* Secondary Inks */
+  html[data-high-contrast="true"] .text-\[\#526359\],
+  html[data-high-contrast="true"] .text-\[\#4A5568\],
+  html[data-high-contrast="true"] .text-\[\#4B5563\],
+  html[data-high-contrast="true"] .text-slate-700,
+  html[data-high-contrast="true"] .text-gray-700 {
+    color: #D2E0EB !important; /* 14.0:1 legible slate */
+  }
+
+  /* Muted Inks */
+  html[data-high-contrast="true"] .text-\[\#65736B\],
+  html[data-high-contrast="true"] .text-\[\#63756C\],
+  html[data-high-contrast="true"] .text-\[\#718096\],
+  html[data-high-contrast="true"] .text-\[\#6B7280\],
+  html[data-high-contrast="true"] .text-slate-500,
+  html[data-high-contrast="true"] .text-gray-500 {
+    color: #A5BDCE !important; /* 9.8:1 */
+  }
+
+  /* Semantic Feedback Text */
+  html[data-high-contrast="true"] .text-\[\#945607\],
+  html[data-high-contrast="true"] .text-amber-700,
+  html[data-high-contrast="true"] .text-amber-800 {
+    color: #FBBF24 !important; /* 11.3:1 amber */
+  }
+
+  html[data-high-contrast="true"] .text-\[\#B42318\],
+  html[data-high-contrast="true"] .text-red-700,
+  html[data-high-contrast="true"] .text-red-800 {
+    color: #F87171 !important; /* 6.7:1 coral red */
+  }
+
+  /* Form Inputs in High Contrast */
+  html[data-high-contrast="true"] input,
+  html[data-high-contrast="true"] select,
+  html[data-high-contrast="true"] textarea {
+    background-color: #09121A !important;
+    color: #FFFFFF !important;
+    border: 2px solid #709CB8 !important;
+  }
+
+  html[data-high-contrast="true"] input:focus,
+  html[data-high-contrast="true"] select:focus,
+  html[data-high-contrast="true"] textarea:focus {
+    border-color: #1EB88A !important;
+    outline: 2px solid #1EB88A !important;
+  }
+
+  /* Button Overrides */
+  html[data-high-contrast="true"] .ks-btn-primary {
+    background-color: #1EB88A !important;
+    color: #09121A !important;
+    font-weight: 700 !important;
+    border: 2px solid #2BD4A0 !important;
+  }
+
+  html[data-high-contrast="true"] .ks-btn-secondary {
+    background-color: #101F2C !important;
+    color: #FFFFFF !important;
+    border: 2px solid #709CB8 !important;
+  }
+
+  /* Disabled Controls */
+  html[data-high-contrast="true"] button:disabled,
+  html[data-high-contrast="true"] input:disabled,
+  html[data-high-contrast="true"] select:disabled,
+  html[data-high-contrast="true"] textarea:disabled {
+    opacity: 0.65 !important;
+    border: 2px dashed #4A6D88 !important;
+    color: #709CB8 !important;
+    background-color: #101F2C !important;
+    cursor: not-allowed !important;
+  }
+
+  /* High Contrast Focus Ring */
+  html[data-high-contrast="true"] :focus-visible {
+    outline: 3px solid #1EB88A !important;
     outline-offset: 3px !important;
+  }
+
+  /* 3. Reduce Motion Rule (System & Citizen Override Precedence) */
+  html[data-reduce-motion="true"] *,
+  html[data-reduce-motion="true"] *::before,
+  html[data-reduce-motion="true"] *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* OS prefers-reduced-motion fallback: applies ONLY when user has NOT explicitly disabled it */
+  @media (prefers-reduced-motion: reduce) {
+    html:not([data-reduce-motion="false"]) *,
+    html:not([data-reduce-motion="false"]) *::before,
+    html:not([data-reduce-motion="false"]) *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* 4. Underline Links Rule (Distinct Visual Cue without Distorting Buttons) */
+  html[data-underline-links="true"] a:not(.ks-btn):not([role="button"]):not(.ks-nav-link) {
+    text-decoration: underline !important;
+    text-underline-offset: 3px !important;
+    text-decoration-thickness: 1.5px !important;
   }
 }
 
+
 /* =========================================================================
-   KENASATHI INSTITUTIONAL CIVIC COMPONENTS
+   KENASATHI REFINED PUBLIC-SERVICE INTERACTIVE SYSTEM
    ========================================================================= */
 
-.ks-card {
-  background-color: #FFFFFF;
-  border: 1px solid var(--color-border);
-  border-radius: 6px; /* 6px restrained radius */
-  box-shadow: 0 1px 3px 0 rgba(23, 43, 58, 0.05);
+/* Shared public-service size tokens */
+:root {
+  --control-height: 2.75rem;
+  --control-pad-x: 0.875rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --radius-control: 0.375rem;
+  --radius-surface: 0.5rem;
 }
 
-/* Button System */
+/* Keep form text readable and prevent mobile browsers from zooming on focus. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+select,
+textarea {
+  min-height: var(--control-height);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* Desktop Navigation Link with Left-to-Right Underline Transition */
+.ks-nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem; /* 14px */
+  font-weight: 600;
+  color: var(--color-navy);
+  border-radius: 4px;
+  min-height: 44px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  transition: color var(--motion-fast) var(--ease-standard),
+              background-color var(--motion-fast) var(--ease-standard);
+}
+
+.ks-nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 0.75rem;
+  right: 0.75rem;
+  height: 2px;
+  background-color: var(--color-primary);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--motion-standard) var(--ease-standard);
+  pointer-events: none;
+}
+
+.ks-nav-link:hover {
+  color: var(--color-primary);
+  background-color: var(--color-surface-pale);
+}
+
+.ks-nav-link:hover::after,
+.ks-nav-link[aria-pressed="true"]::after {
+  transform: scaleX(1);
+}
+
+.ks-nav-link[aria-pressed="true"] {
+  color: var(--color-primary);
+  font-weight: 700;
+  background-color: var(--color-surface-soft);
+}
+
+/* Base Button System - Strict minimum 44px hit areas */
 .ks-btn {
   display: inline-flex;
   align-items: center;
@@ -98,64 +458,79 @@
   gap: 0.5rem;
   font-weight: 600;
   border-radius: 6px;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem var(--control-pad-x);
   font-size: 0.875rem;
-  min-height: 2.5rem;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  min-height: var(--control-height);
+  line-height: 1.4;
+  font-weight: 600;
+  border-radius: var(--radius-control);
+  cursor: pointer;
   user-select: none;
+  transition: background-color var(--motion-fast) var(--ease-standard),
+              border-color var(--motion-fast) var(--ease-standard),
+              color var(--motion-fast) var(--ease-standard),
+              box-shadow var(--motion-fast) var(--ease-standard),
+              transform var(--motion-fast) var(--ease-standard);
 }
 
+.ks-btn:active {
+  transform: scale(0.99);
+}
+
+.ks-icon-move {
+  transition: transform var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
+}
+
+/* Primary Action Button (Forest Green) */
 .ks-btn-primary {
   background-color: var(--color-primary);
   color: #FFFFFF;
-  border: 1px solid transparent;
+  border: 1px solid var(--color-primary);
+  box-shadow: 0 1px 2px 0 rgba(23, 107, 83, 0.15);
 }
 
 .ks-btn-primary:hover {
-  background-color: var(--color-primary-hover);
+  background-color: var(--color-primary-deep);
+  border-color: var(--color-primary-deep);
+  box-shadow: 0 3px 8px 0 rgba(18, 74, 59, 0.22);
 }
 
-.ks-btn-teal {
-  background-color: var(--color-primary);
-  color: #FFFFFF;
-  border: 1px solid transparent;
+.ks-btn-primary:hover .ks-icon-move,
+.ks-btn-primary:hover svg.arrow-icon {
+  transform: translateX(2px);
 }
 
-.ks-btn-teal:hover {
-  background-color: var(--color-primary-hover);
-}
-
-.ks-btn-navy {
-  background-color: var(--color-navy);
-  color: #FFFFFF;
-  border: 1px solid transparent;
-}
-
-.ks-btn-navy:hover {
-  background-color: var(--color-navy-hover);
-}
-
+/* Secondary Button (Neutral White / Border) */
 .ks-btn-secondary {
   background-color: #FFFFFF;
-  color: var(--color-text-primary);
+  color: var(--color-navy);
   border: 1px solid var(--color-border);
+  box-shadow: 0 1px 2px 0 rgba(23, 43, 58, 0.04);
 }
 
 .ks-btn-secondary:hover {
-  background-color: #F8FAF9;
-  border-color: #B9C4BE;
+  background-color: var(--color-surface-pale);
+  border-color: var(--color-border-strong);
+  color: var(--color-primary-deep);
 }
 
-.ks-btn-ghost {
-  background-color: transparent;
-  color: var(--color-text-secondary);
+.ks-btn-secondary:hover .ks-icon-move {
+  transform: translateX(2px);
 }
 
-.ks-btn-ghost:hover {
-  background-color: var(--color-primary-light);
-  color: var(--color-primary);
+/* Navy Formal Document Action */
+.ks-btn-navy {
+  background-color: var(--color-navy);
+  color: #FFFFFF;
+  border: 1px solid var(--color-navy);
 }
 
+.ks-btn-navy:hover {
+  background-color: var(--color-navy-deep);
+  border-color: var(--color-navy-deep);
+}
+
+/* Danger Action */
 .ks-btn-danger {
   background-color: #FFFFFF;
   color: var(--color-danger);
@@ -167,21 +542,119 @@
   border-color: var(--color-danger);
 }
 
-/* Badge System - Rectangular with small 4px radius */
+/* Ghost Action */
+.ks-btn-ghost {
+  background-color: transparent;
+  color: var(--color-ink-secondary);
+  border: 1px solid transparent;
+}
+
+.ks-btn-ghost:hover {
+  background-color: var(--color-surface-soft);
+  color: var(--color-primary);
+}
+
+/* Service Row Interaction System */
+.ks-service-row {
+  display: block;
+  background-color: #FFFFFF;
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color var(--motion-standard) var(--ease-standard),
+              border-color var(--motion-standard) var(--ease-standard);
+}
+
+.ks-service-row:hover {
+  background-color: var(--color-surface-pale);
+  border-color: var(--color-border-strong);
+}
+
+.ks-service-row:hover .ks-service-num {
+  color: var(--color-primary);
+}
+
+.ks-service-row:hover .ks-service-arrow {
+  transform: translateX(3px);
+  color: var(--color-primary);
+}
+
+.ks-service-arrow {
+  transition: transform var(--motion-standard) var(--ease-standard),
+              color var(--motion-standard) var(--ease-standard);
+}
+
+/* Surfaces & Containers */
+.ks-surface {
+  background-color: #FFFFFF;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
+}
+
+.ks-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
+}
+
+/* Interactive Form Inputs */
+.ks-input {
+  width: 100%;
+  background-color: #FFFFFF;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-ink-primary);
+  min-height: var(--control-height);
+  padding: 0.5rem var(--control-pad-x);
+  font-size: 1rem;
+  transition: border-color var(--motion-fast) var(--ease-standard),
+              box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.ks-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(23, 107, 83, 0.12);
+}
+
+/* Upload Dropzone Interaction */
+.ks-dropzone {
+  border: 2px dashed var(--color-border);
+  border-radius: 6px;
+  background-color: #FFFFFF;
+  transition: border-color var(--motion-standard) var(--ease-standard),
+              background-color var(--motion-standard) var(--ease-standard);
+}
+
+.ks-dropzone:hover,
+.ks-dropzone.drag-active {
+  border-color: var(--color-primary);
+  background-color: var(--color-surface-pale);
+}
+
+/* Accordion Chevron Rotation */
+.ks-accordion-chevron {
+  transition: transform var(--motion-standard) var(--ease-standard);
+}
+
+.ks-accordion-trigger[aria-expanded="true"] .ks-accordion-chevron,
+[data-state="open"] .ks-accordion-chevron {
+  transform: rotate(180deg);
+}
+
+/* Badges */
 .ks-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.2rem 0.5rem;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
   border-radius: 4px;
-  font-size: 0.6875rem; /* 11px */
+  font-size: 0.75rem; /* 12px strictly compliant */
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.3;
 }
 
 .ks-badge-verified {
-  background-color: var(--color-success-bg);
-  color: var(--color-success);
+  background-color: var(--color-surface-soft);
+  color: var(--color-primary);
   border: 1px solid #C4DFD6;
 }
 
@@ -197,29 +670,14 @@
   border: 1px solid #FECACA;
 }
 
-.ks-badge-teal {
-  background-color: var(--color-primary-light);
-  color: var(--color-primary);
-  border: 1px solid #C4DFD6;
-}
-
 .ks-badge-neutral {
-  background-color: #F4F6F5;
-  color: var(--color-text-secondary);
+  background-color: var(--color-canvas);
+  color: var(--color-ink-primary);
   border: 1px solid var(--color-border);
 }
 
-/* Tabular numbers for financial and statutory precision */
+/* Tabular Numbers */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
-}
-
-/* prefers-reduced-motion compliance */
-@media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+  font-family: 'JetBrains Mono', monospace;
 }

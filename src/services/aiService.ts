@@ -19,6 +19,7 @@ import {
 export const ModelAnalysisOutputSchema = z.object({
   summaryBn: z.string().min(1),
   summaryEn: z.string().min(1),
+  // Accept only bounded legacy provider scores; these are not surfaced as calibrated confidence.
   trustScore: z.number().min(0).max(100).optional(),
   statuteSection: z.string().optional(),
   statutoryReasoningBn: z.string().optional(),
@@ -59,7 +60,10 @@ export interface AiAnalysisInput {
   claimedPurchasePriceBdt: number;
   fairMarketPriceBdt: number;
   transactionRef: string;
-  incidentDate?: string; // Cause of action date (crucial for Section 60)
+  incidentDate?: string; // Legacy/standard date identifier
+  purchaseDate?: string; // Date purchase was made
+  discoveryDate?: string; // Date defect or grievance was discovered
+  causeOfActionDate?: string; // Confirmed date cause of action arose for Section 60
   complainantName: string;
   complainantPhone: string;
   complainantAddress: string;
@@ -492,7 +496,8 @@ function runLocalDeterministicEngine(
   const isCounterfeit = input.grievanceType === 'counterfeit_product';
 
   // Section 60 30 Calendar Days Statutory Limitation Engine (P0-1 Timezone Safe)
-  const limitation = calculateSection60Limitation(input.incidentDate);
+  const confirmedCauseDate = input.causeOfActionDate || input.incidentDate;
+  const limitation = calculateSection60Limitation(confirmedCauseDate);
   const limitationRemainingDays = limitation.limitationRemainingDays;
   const isTimeBarred = limitation.isTimeBarred;
 
@@ -507,14 +512,6 @@ function runLocalDeterministicEngine(
   } else if (input.evidenceItems.some((e) => e.anomalyDetected)) {
     riskTier = 'warning_signals';
   }
-
-  // Transparent, deterministic Evidence-Coverage calculation (Not arbitrary model trust score)
-  let evidenceCoverageScore = 30; // base intake score
-  if (input.evidenceItems.length > 0) evidenceCoverageScore += 25;
-  if (input.transactionRef) evidenceCoverageScore += 20;
-  if (input.incidentDate && !isTimeBarred && !limitation.isFutureDate) evidenceCoverageScore += 15;
-  if (input.sellerName) evidenceCoverageScore += 10;
-  evidenceCoverageScore = Math.min(100, evidenceCoverageScore);
 
   const estimatedFine = statute.maxFine;
 
@@ -729,17 +726,15 @@ function runLocalDeterministicEngine(
     grievanceType: input.grievanceType,
     claimedPurchasePriceBdt: price,
     fairMarketPriceBdt: msrp,
-    trustScore: evidenceCoverageScore,
     riskTier,
-    confidenceScore: evidenceCoverageScore,
     processingMode: 'local_deterministic',
     aiModelUsed: 'Local Legal Rules Engine (Zero Cloud Transmission)',
     evidenceStorageType: 'indexeddb_blobs_and_local_meta',
     statutoryCitation: `ভোক্তা অধিকার সংরক্ষণ আইন ২০০৯, ${statute.section}`,
     statutoryDisclaimerBn:
-      'আইনি নোটিশ: এটি জাতীয় ভোক্তা-অধিকার সংরক্ষণ অধিদপ্তর (DNCRP) এর আইন ২০০৯ এর আলোকে নাগরিক সহায়তার জন্য প্রস্তুত একটি প্রাথমিক নালিশ খসড়া। কেনাসাথী কোনো সরকারি সংস্থা নয় এবং আদালতের চূড়ান্ত রায়ের নিশ্চয়তা প্রদান করে না। চূড়ান্ত শুনানিতে নির্বাহী ম্যাজিস্ট্রেটের সিদ্ধান্ত চূড়ান্ত।',
+      'আইনি নোটিশ: এটি জাতীয় ভোক্তা-অধিকার সংরক্ষণ অধিদপ্তর (DNCRP) এর আইন ২০০৯ এর আলোকে নাগরিক সহায়তার জন্য প্রস্তুত একটি প্রাথমিক নালিশ খসড়া। কেনাসাথী কোনো সরকারি সংস্থা নয় এবং আদালতের চূড়ান্ত রায়ের নিশ্চয়তা প্রদান করে না। চূড়ান্ত শুনানিতে মহাপরিচালক বা ক্ষমতাপ্রাপ্ত কর্মকর্তার সিদ্ধান্ত চূড়ান্ত।',
     statutoryDisclaimerEn:
-      'Legal Disclaimer: Prepared as a civic-tech complaint draft under CRPA 2009. KenaSathi is an independent platform, not an affiliated government entity. Official administrative relief is subject to hearing before an Executive Magistrate.',
+      'Legal Disclaimer: Prepared as a civic-tech complaint draft under CRPA 2009. KenaSathi is an independent platform, not an affiliated government entity. Official administrative relief is subject to hearing before the Director General or empowered officer of DNCRP.',
     evidenceItems: input.evidenceItems,
     riskBreakdown,
     agentSteps,
@@ -801,7 +796,6 @@ function runLocalDeterministicEngine(
           value: input.transactionRef,
           sourceDocId: 'user_input',
           sourceDocName: 'User Dispute Intake Form',
-          confidence: 90,
           verified: false,
           factStatus: 'user_reported',
           provenance: 'user_reported',
@@ -817,7 +811,6 @@ function runLocalDeterministicEngine(
           value: `৳${input.claimedPurchasePriceBdt.toLocaleString()}`,
           sourceDocId: 'user_input',
           sourceDocName: 'User Dispute Intake Form',
-          confidence: 90,
           verified: false,
           factStatus: 'user_reported',
           provenance: 'user_reported',
@@ -854,12 +847,12 @@ async function callLiveGeminiApi(
   // Include extracted selectable text from PDF documents (sanitized)
   const extractedPdfTexts = input.evidenceItems
     .filter((e) => e.textExtractionStatus === 'text_extracted_from_pdf' && e.rawTextSnippet)
-    .map((e) => `[Document: ${e.name}] ${sanitizePiiForCloud(e.rawTextSnippet || '')}`)
+    .map((e) => `[Document: ${sanitizePiiForCloud(e.name)}] ${sanitizePiiForCloud(e.rawTextSnippet || '')}`)
     .join('\n\n');
 
   // Include detected candidate facts
   const candidateFactsSummary = input.detectedFacts
-    .map((f) => `- ${f.labelEn}: ${f.value} (Source: ${f.sourceDocName}, Method: ${f.extractionMethod})`)
+    .map((f) => `- ${sanitizePiiForCloud(f.labelEn)}: ${sanitizePiiForCloud(f.value)} (Source: ${sanitizePiiForCloud(f.sourceDocName)}, Method: ${f.extractionMethod})`)
     .join('\n');
 
   const promptText = `

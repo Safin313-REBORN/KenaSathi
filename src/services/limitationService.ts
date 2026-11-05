@@ -35,12 +35,12 @@ export function calculateSection60Limitation(
       isFutureDate: false,
       isExpiringSoon: false,
       daysElapsed: null,
-      statusBn: 'তারিখ দেওয়া হয়নি / তারিখ নিশ্চিত নয়',
-      statusEn: 'Date not provided',
+      statusBn: 'তারিখ দেওয়া হয়নি / কারণ উদ্ভবের তারিখ অনির্ধারিত',
+      statusEn: 'Cause-of-action date not confirmed',
       statutoryWarningBn:
-        'ঘটনার তারিখ উল্লেখ করা হয়নি। ধারা ৬০ অনুসারে কারণ উদ্ভব হওয়ার ৩০ দিনের মধ্যে অভিযোগ দাখিল আবশ্যক। তারিখ নিশ্চিত হতে ভোক্তা অধিদপ্তরের ১৬১২১ হটলাইনে যোগাযোগ করুন।',
+        'ভোক্তা অধিকার সংরক্ষণ আইন, ২০০৯-এর ধারা ৬০ অনুযায়ী কারণ উদ্ভব হওয়ার ৩০ দিনের মধ্যে লিখিত অভিযোগ দায়ের করতে হয়। কারণ উদ্ভবের তারিখ পরিস্থিতি অনুযায়ী নির্ধারিত হতে পারে। তারিখ নিশ্চিত হতে বা আইনি বিলম্ব মার্জনার বিষয়ে ভোক্তা অধিকার অধিদপ্তরের ১৬১২১ হটলাইনে যোগাযোগ করুন।',
       statutoryWarningEn:
-        'Cause-of-action date was not provided. Under Section 60, complaints must be submitted within 30 calendar days. If uncertain, verify with DNCRP helpline 16121.',
+        'Under Section 60 of CRPA 2009, written complaints must be filed within 30 days of the cause of action arising. The date depends on factual circumstances. If uncertain, consult DNCRP helpline 16121.',
     };
   }
 
